@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { MapPin, Search, Send, ChevronRight, Star } from 'lucide-react';
 import { DashedCircle } from './components/DashedCircle';
+import { motion } from 'framer-motion';
 
 export default function MobileView() {
   const router = useRouter();
@@ -63,7 +64,7 @@ export default function MobileView() {
 
 
       <svg
-        className="ml-1 mt-8"
+        className="ml-1 mt-8 overflow-hidden"
         width="350"
         height="141"
         viewBox="0 0 392 141"
@@ -77,7 +78,11 @@ export default function MobileView() {
       </svg>
 
 
-      <div className="absolute bg-white h-[18%] w-[25%] rounded-t-xl top-[45%] left-[5%] flex flex-col items-center">
+      <motion.div className="absolute bg-white h-[18%] w-[25%] rounded-t-xl top-[45%] left-[5%] flex flex-col items-center"
+        initial={{height: 0}}
+        animate={{height:116}}
+        transition={{duration:0.5}}
+      >
         <h3 className="text-orange-500 font-bold text-sm mt-2">TAKE AWAY</h3>
         <h4 className="text-[#8B8B8B] text-[0.6rem] font-semibold">From Nearby</h4>
         <p className="text-white bg-orange-500 mt-1 py-0.5 px-1 rounded-lg w-fit h-fit text-[0.4rem]">
@@ -87,7 +92,7 @@ export default function MobileView() {
         <div className="bg-green w-fit h-fit rounded-full p-1 absolute bottom-1 left-1">
           <Send color="white" size={15} />
         </div>
-      </div>
+      </motion.div>
 
       <div className="absolute bg-white h-[20%] w-[25%] rounded-t-xl top-[43%] left-[38%] flex flex-col items-center">
         <h3 className="text-orange-500 font-bold text-sm mt-2">TAKE AWAY</h3>
@@ -227,7 +232,7 @@ export default function MobileView() {
           </div>
           <p className='text-white font-bold absolute top-[50%] right-6 transform -translate-y-0.5'>4.5</p>
         </div>
-        <div className="bg-gradient-to-b from-[#4D906E] to-[#0BAE5B] rounded-lg w-[80%] h-[50%] border-2 border-[#004D26]">
+        <div className="bg-gradient-to-b from-[#4D906E] to-[#0BAE5B] rounded-lg w-[80%] h-[50%] border-2 border-[#004D26] relative">
           <div className='w-full h-[50%] relative'>
             <Image src={"/restaurantbg.png"} alt='restaurant cover' fill className='object-fill ml-8' />
           </div>
@@ -243,7 +248,7 @@ export default function MobileView() {
           <p className='text-white font-bold absolute top-[50%] right-6 transform -translate-y-0.5'>4.5</p>
 
         </div>
-        <div className="bg-[#FC603A] rounded-lg w-[80%] h-[50%] border-2 border-[#BC2F0C]">
+        <div className="bg-[#FC603A] rounded-lg w-[80%] h-[50%] border-2 border-[#BC2F0C] relative ">
           <div className='w-full h-[50%] relative'>
             <Image src={"/restaurantbg.png"} alt='restaurant cover' fill className='object-fill ml-8' />
           </div>
@@ -259,7 +264,7 @@ export default function MobileView() {
           <p className='text-white font-bold absolute top-[50%] right-6 transform -translate-y-0.5'>4.5</p>
 
         </div>
-        <div className="bg-[#FC603A] rounded-lg w-[80%] h-[50%] border-2 border-[#BC2F0C]">
+        <div className="bg-[#FC603A] rounded-lg w-[80%] h-[50%] border-2 border-[#BC2F0C] relative">
           <div className='w-full h-[50%] relative'>
             <Image src={"/restaurantbg.png"} alt='restaurant cover' fill className='object-fill ml-8' />
           </div>
