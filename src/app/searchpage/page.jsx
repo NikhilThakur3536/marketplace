@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import { useState } from "react";
 import Header from "./ui/Header";
@@ -7,11 +7,12 @@ import FilterChips from "./ui/FilterChips";
 import Restaurants from "./ui/Restaurant";
 import FilterModal from "./ui/FilterModal";
 
-export default function SearchPage () {
+export default function SearchPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState("relevance");
   const [selectedCuisines, setSelectedCuisines] = useState(["All"]);
   const [priceRange, setPriceRange] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const toggleFilters = () => setShowFilters(!showFilters);
 
@@ -36,10 +37,10 @@ export default function SearchPage () {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="container mx-auto max-w-md px-4 py-6">
-        <Header toggleFilters={toggleFilters} />
+        <Header toggleFilters={toggleFilters} onSearch={setSearchQuery} />
         <Categories />
         <FilterChips />
-        <Restaurants />
+        <Restaurants searchQuery={searchQuery} /> 
       </div>
       {showFilters && (
         <FilterModal
