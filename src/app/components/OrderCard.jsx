@@ -1,18 +1,29 @@
 "use client"
 
 import { useState } from "react"
+import axios from "axios"
 import Image from "next/image"
 import { CustomButton } from "./CustomButton"
 import { CustomTextarea } from "./CustomTextArea"
 
-export default function OrderCard({ item, onAddToCart }) {
+export default function OrderCard({ 
+  item, 
+  onAddToCart,
+  productId,                 
+  productVariantUomId,       
+  customerName = "John Doe", 
+  customerPhone = "+1234567890", 
+  customerWhatsApp = "+1234567890" 
+}) {
   const { name, description, price, imageUrl, sizeOptions, extrasCategories } = item
-
+  const BASE_URL=process.env.NEXT_PUBLIC_BASE_URL;
   const [selectedSize, setSelectedSize] = useState(sizeOptions[1] || sizeOptions[0])
   const [selectedExtras, setSelectedExtras] = useState(
     extrasCategories.reduce((acc, _, index) => ({ ...acc, [index]: "All" }), {})
   )
   const [instructions, setInstructions] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   const handleSizeSelect = (size) => {
     setSelectedSize(size)
@@ -25,18 +36,40 @@ export default function OrderCard({ item, onAddToCart }) {
     }))
   }
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
+    setLoading(true)
+    setError(null)
+
     const orderDetails = {
-      item: name,
-      size: selectedSize,
-      extras: selectedExtras,
-      instructions,
-      price,
+      productId, 
+      quantity: 1,
+      productVarientUomId: productVariantUomId,
+      customerName,
+      customerPhone,
+      customerWhatsApp,
     }
 
-    console.log(orderDetails)
-    if (onAddToCart) {
-      onAddToCart(orderDetails)
+    console.log("Sending order to API:", orderDetails)
+
+    try {
+         const token = localStorage.getItem("deviceToken");
+      const response = await axios.post(`${BASE_URL}/user/cart/add`, orderDetails, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      console.log("API Response:", response.data)
+
+      if (onAddToCart) {
+        onAddToCart(orderDetails)
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Error adding to cart")
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -112,11 +145,14 @@ export default function OrderCard({ item, onAddToCart }) {
           />
         </div>
 
+        {error && <p className="text-red-500">{error}</p>}
+
         <CustomButton
+          disabled={loading}
           className="w-full py-6 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-md"
           onClick={handleAddToCart}
         >
-          Add to Cart
+          {loading ? "Adding..." : "Add to Cart"}
         </CustomButton>
       </div>
     </div>
