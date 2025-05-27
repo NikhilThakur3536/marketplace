@@ -4,7 +4,7 @@ import { MapPin } from 'lucide-react';
 export default function Header({ handleSearchClick }) {
   return (
     <div className="flex justify-between w-full h-12 absolute">
-      <div className="fixed -top-8 left-10 w-24 h-24 z-50">
+      <div className="fixed -top-8 w-24 h-24 z-50">
         <Image
           src="/infoware.png"
           alt="logo"
