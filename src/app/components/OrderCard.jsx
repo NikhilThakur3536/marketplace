@@ -10,7 +10,7 @@ export default function OrderCard({
   item, 
   onAddToCart,
   productId,                 
-  productVariantUomId,       
+  productVarientUomId,       
   customerName = "John Doe", 
   customerPhone = "+1234567890", 
   customerWhatsApp = "+1234567890" 
@@ -41,14 +41,13 @@ export default function OrderCard({
     setError(null)
 
     const orderDetails = {
-      productId, 
+      productId:productId, 
       quantity: 1,
-      productVarientUomId: productVariantUomId,
+      productVarientUomId: productVarientUomId,
       customerName,
       customerPhone,
       customerWhatsApp,
-    }
-
+    } 
     console.log("Sending order to API:", orderDetails)
 
     try {

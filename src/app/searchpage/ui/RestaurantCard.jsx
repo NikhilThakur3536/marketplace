@@ -10,7 +10,9 @@ function RestaurantCard({
   deliveryTime,
   distance,
   price,
+  productVarientUomId,
   discount,
+  productId,   
 }) {
   const [isOrder, setIsOrder] = useState(false);
   const toggleOrderCard = () => setIsOrder(!isOrder);
@@ -111,7 +113,7 @@ function RestaurantCard({
       {isOrder && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
           <div className="z-20">
-            <OrderCard item={foodItems[1]} onAddToCart={() => setIsOrder(false)} />
+            <OrderCard item={foodItems[1]} productId={productId} productVarientUomId={productVarientUomId} onAddToCart={() => setIsOrder(false)} />
           </div>
         </div>
       )}
