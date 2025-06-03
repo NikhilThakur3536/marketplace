@@ -1,106 +1,183 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { MapPin, ShoppingBag } from "lucide-react";
+import ItemCards from "./components/ItemCards";
 
-export default function CartPage() {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: '1',
-      name: 'Toyota Camry Air Filter',
-      image: '/placeholder.svg?height=200&width=200',
-      price: 24.99,
-      originalPrice: 34.99,
-      quantity: 1,
-      type: 'Aftermarket Premium',
-    },
-    {
-      id: '3',
-      name: 'Ford F-150 Brake Pads',
-      image: '/placeholder.svg?height=200&width=200',
-      price: 89.99,
-      originalPrice: 109.99,
-      quantity: 2,
-      type: 'Aftermarket Premium',
-    },
-  ]);
+export default function Cart() {
+    const [cartItems, setCartItems] = useState([]);
+    const [totalComponents, setTotalComponents] = useState(0);
+    const [totalPrice, setTotalPrice] = useState(0);
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
-  const updateQuantity = (id, newQuantity) => {
-    if (newQuantity < 1) return;
-    setCartItems(cartItems.map(item => (item.id === id ? { ...item, quantity: newQuantity } : item)));
-  };
+    useEffect(() => {
+        const fetchCartItems = async () => {
+            const token = localStorage.getItem("token");
+            try {
+                const payload = {
+                    languageId: "2bfa9d89-61c4-401e-aae3-346627460558"
+                };
 
-  const removeItem = (id) => {
-    setCartItems(cartItems.filter(item => item.id !== id));
-  };
+                const response = await axios.post(
+                    `${BASE_URL}/user/cart/listv1`,
+                    payload,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+                const items = response.data?.data?.rows || [];
+                setCartItems(items);
+                calculateTotal(items);
+            } catch (error) {
+                console.error("Failed to fetch cart items:", error);
+            }
+        };
 
-  const subtotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
-  const shipping = 12.99;
-  const tax = subtotal * 0.08;
-  const total = subtotal + shipping + tax;
+        fetchCartItems();
+    }, []);
 
-  return (
-    <div className="w-full max-w-md mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6 text-center">Shopping Cart</h1>
+    const calculateTotal = (items) => {
+        let totalQuantity = items.length; 
+        let totalPrice = 0;
 
-      {cartItems.length > 0 ? (
-        <>
-          <div className="space-y-6">
-            {cartItems.map(item => (
-              <div key={item.id} className="border rounded-lg p-4 flex gap-4">
-                <Image src={item.image || '/placeholder.svg'} alt={item.name} width={80} height={80} className="rounded-md" />
-                <div className="flex-1">
-                  <Link href={`/products/${item.id}`} className="font-medium text-blue-600 hover:underline block">
-                    {item.name}
-                  </Link>
-                  <p className="text-sm text-gray-600">{item.type}</p>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-sm font-semibold">${item.price.toFixed(2)}</span>
-                    <div className="flex items-center border border-gray-300 rounded-md">
-                      <button className="w-8 h-8 flex items-center justify-center border-r" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</button>
-                      <input type="text" readOnly value={item.quantity} className="w-10 h-8 text-center border-none focus:outline-none" />
-                      <button className="w-8 h-8 flex items-center justify-center border-l" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</button>
+        items.forEach((item) => {
+            totalPrice += (item.priceInfo?.price || 0) * (item.quantity || 0);
+        });
+
+        const taxRate = 0.1; // 10% tax
+        const totalTax = totalPrice * taxRate;
+        const totalPriceWithTax = totalPrice + totalTax;
+
+        setTotalComponents(totalQuantity);
+        setTotalPrice(totalPriceWithTax);
+    };
+
+    const handleRemoveItem = async (cartId) => {
+        const token = localStorage.getItem("token");
+        try {
+            await axios.post(
+                `${BASE_URL}/user/cart/remove`,
+                { cartId },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+            setCartItems((prevItems) => {
+                const updatedItems = prevItems.filter((item) => item.id !== cartId);
+                calculateTotal(updatedItems); // Recalculate totals
+                return updatedItems;
+            });
+        } catch (error) {
+            console.error("Failed to remove item from cart:", error);
+            const fetchCartItems = async () => {
+                try {
+                    const payload = {
+                        languageId: "2bfa9d89-61c4-401e-aae3-346627460558"
+                    };
+                    const response = await axios.post(
+                        `${BASE_URL}/user/cart/listv1`,
+                        payload,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                "Content-Type": "application/json",
+                            },
+                        }
+                    );
+                    const items = response.data?.data?.rows || [];
+                    setCartItems(items);
+                    calculateTotal(items);
+                } catch (fetchError) {
+                    console.error("Failed to refetch cart items:", fetchError);
+                }
+            };
+            fetchCartItems();
+        }
+    };
+
+    return (
+        <div className="flex justify-center">
+            <div className="max-w-md w-full h-screen bg-white p-2 flex flex-col gap-4">
+                {/* Delivery Address */}
+                <div className="w-full rounded-xl px-4 bg-gradient-to-r from-blue-100 to-fuchsia-100">
+                    <div className="flex gap-4 p-4">
+                        <div className="w-[5%] flex items-center justify-center">
+                            <div className="w-fit h-fit rounded-full p-1 bg-blue-200">
+                                <MapPin color="blue" size={20} />
+                            </div>
+                        </div>
+                        <div className="flex flex-col w-[80%]">
+                            <span className="font-bold text-black text-xl">
+                                Delivery Address
+                            </span>
+                            <p className="text-xs">
+                                Koramangala, Bangalore, Karnataka 560034
+                            </p>
+                        </div>
+                        <button className="bg-white border border-gray-200 flex items-center justify-center w-fit h-fit px-6 py-2 transform translate-y-2.5">
+                            <span className="text-xs"> Change </span>
+                        </button>
                     </div>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-sm text-gray-500">Total: ${(item.price * item.quantity).toFixed(2)}</span>
-                    <button className="text-red-600 text-sm" onClick={() => removeItem(item.id)}>Remove</button>
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
 
-          <div className="mt-8 border-t pt-4 space-y-2 text-sm text-gray-700">
-            <div className="flex justify-between">
-              <span>Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
+                {/* Cart Items */}
+                <div className="w-full flex flex-col gap-2">
+                    <div className="bg-gradient-to-r from-orange-500 to-orange-700 w-full flex items-center gap-2 px-2 py-4">
+                        <ShoppingBag color="white" size={20} />
+                        <span className="text-white text-xl font-semibold">
+                            Your Items
+                        </span>
+                    </div>
+
+                    <div className="w-full flex flex-col gap-4 p-2 bg-white border border-gray-200">
+                        {cartItems.length === 0 ? (
+                            <p className="text-sm text-gray-500">
+                                Loading cart...
+                            </p>
+                        ) : (
+                            cartItems.map((item) => (
+                                <ItemCards
+                                    key={item.id}
+                                    id={item.id}
+                                    name={item.name}
+                                    total={item.priceInfo?.price*item.quantity}
+                                    restaurantName={
+                                        item.product?.productLanguages?.[0]
+                                            ?.name || "Restaurant"
+                                    }
+                                    description={item.description || ""}
+                                    customizations={item.customizations || "None"}
+                                    count={item.quantity}
+                                    addOns={
+                                        item.CartAddOns?.[0]?.product?.productLanguages?.[0]?.name ||
+                                        "No Add-ons"
+                                    }
+                                    onRemove={handleRemoveItem}
+                                />
+                            ))
+                        )}
+
+                        {/* Total Items and Price */}
+                        <div className="border-t pt-4 mt-4 bg-gray-50 rounded-xl p-4 shadow-sm" role="region" aria-label="Cart Summary">
+                            <div className="flex justify-between items-center mb-2">
+                                <p className="text-lg font-semibold text-gray-800">Total Items</p>
+                                <p className="text-lg font-bold text-gray-900">{totalComponents}</p>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <p className="text-lg font-semibold text-gray-800">Total Price (incl. tax)</p>
+                                <p className="text-xl font-bold text-blue-600">${totalPrice.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div className="flex justify-between">
-              <span>Shipping</span>
-              <span>${shipping.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Tax</span>
-              <span>${tax.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between font-bold border-t pt-2">
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
-            </div>
-            <button className="btn btn-primary w-full mt-4">Proceed to Checkout</button>
-            <Link href="/products" className="btn btn-outline w-full mt-2 text-center">
-              Continue Shopping
-            </Link>
-          </div>
-        </>
-      ) : (
-        <div className="text-center py-10 text-gray-600">
-          <p>Your cart is currently empty.</p>
-          <Link href="/products" className="btn btn-primary mt-4">Browse Products</Link>
         </div>
-      )}
-    </div>
-  );
+    );
 }

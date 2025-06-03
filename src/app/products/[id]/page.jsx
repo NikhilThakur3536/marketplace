@@ -48,7 +48,7 @@ export default function ProductPage({ params: paramsPromise }) {
   const decrement = () => quantity > 1 && setQuantity(quantity - 1);
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 py-8">
+    <div className="w-full max-w-md mx-auto px-4 py-8">
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Product Images */}
         <div className="w-full lg:w-1/2">
