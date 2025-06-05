@@ -1,18 +1,26 @@
-import React from "react";
+"use client";
 
+import { useRouter } from "next/navigation";
 
 const BottomNav = () => {
+  const router = useRouter();
+
   return (
-    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2  max-w-md">
+    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 max-w-md">
       <div className="bg-gradient-to-r from-[#9FD770] to-[#64C058] mx-4 mb-4 rounded-2xl px-6 py-4">
         <div className="flex items-center justify-around gap-12">
-          <button className="p-2">
+          <button className="p-2"
+            onClick={()=>router.push("/electronicsmarketplace")}
+          >
             <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
             </svg>
           </button>
 
-          <button className="p-2">
+          <button
+            className="p-2"
+            onClick={() => router.push("/electronicsmarketplace/cart")}
+          >
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
