@@ -2,6 +2,7 @@ import { Plus, Minus, Trash2 } from "lucide-react";
 import Image from "next/image";
 
 export default function ItemCards({ id, name, restaurantName, description, count,  customizations, total, addOns, onRemove }) {
+    
     const handleRemove = async () => {
         try {
             await onRemove(id);

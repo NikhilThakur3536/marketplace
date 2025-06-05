@@ -30,6 +30,7 @@ export default function Cart() {
                     }
                 );
                 const items = response.data?.data?.rows || [];
+                console.log("cart items",items)
                 setCartItems(items);
                 calculateTotal(items);
             } catch (error) {
@@ -71,7 +72,7 @@ export default function Cart() {
             );
             setCartItems((prevItems) => {
                 const updatedItems = prevItems.filter((item) => item.id !== cartId);
-                calculateTotal(updatedItems); // Recalculate totals
+                calculateTotal(updatedItems); 
                 return updatedItems;
             });
         } catch (error) {
