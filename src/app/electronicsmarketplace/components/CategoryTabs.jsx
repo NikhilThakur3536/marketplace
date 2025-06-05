@@ -2,11 +2,6 @@
 import { useState } from "react";
 
 const CategoryTabs = ({ categories = [], onCategoryChange, activeTab }) => {
-  console.log("CategoryTabs received categories:", categories);
-  console.log("Is categories valid?:", categories.length > 0);
-  categories.forEach((category, index) => {
-    console.log(`Category ${index}: id=${category.id}, name=${category.name}`);
-  });
 
   return (
     <div className="flex space-x-2 overflow-x-auto pb-2">

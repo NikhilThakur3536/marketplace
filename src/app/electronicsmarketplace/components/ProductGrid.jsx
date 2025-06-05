@@ -49,7 +49,6 @@ export default function ProductGrid() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    console.log("Categories state updated:", categories);
   }, [categories]);
 
   const fetchProducts = async (categoryId = null, searchTerm = "") => {
@@ -69,7 +68,6 @@ export default function ProductGrid() {
         ...(searchTerm && { searchKey: searchTerm }),
       };
 
-      console.log("Fetching products with payload:", payload);
 
       const response = await axios.post(`${BASE_URL}/user/product/listv2`, payload, {
         headers: {
@@ -78,12 +76,10 @@ export default function ProductGrid() {
         },
       });
 
-      console.log("Products API response:", response.data);
 
       const fetchedProducts = response.data?.data?.rows || [];
 
       fetchedProducts.forEach((product, index) => {
-        console.log(`Product ${index}: categoryId=${product.categoryId}, category.id=${product.category?.id}`);
       });
 
       const uniqueCategories = [
@@ -101,11 +97,9 @@ export default function ProductGrid() {
         ).values()],
       ];
 
-      console.log("Extracted categories:", uniqueCategories);
 
       const finalCategories = uniqueCategories.length > 1 ? uniqueCategories : [{ id: "all", name: "ALL" }];
       setCategories(finalCategories);
-      console.log("Set categories with ID:", finalCategories, Date.now());
 
       const formattedProducts = fetchedProducts.map((product) => ({
         id: product.id,
@@ -120,7 +114,6 @@ export default function ProductGrid() {
       }));
 
       setProducts(formattedProducts);
-      console.log("Formatted products:", formattedProducts);
     } catch (err) {
       console.error("Error fetching products:", {
         message: err.message,
@@ -129,7 +122,6 @@ export default function ProductGrid() {
       });
       setError(err.message || "Failed to load products. Please try again.");
       setCategories([{ id: "all", name: "ALL" }]);
-      console.log("Set categories on error:", [{ id: "all", name: "ALL" }], Date.now());
     } finally {
       setLoading(false);
     }
@@ -140,7 +132,6 @@ export default function ProductGrid() {
   }, []);
 
   const handleCategoryChange = (categoryId, categoryName) => {
-    console.log("handleCategoryChange called with:", categoryId, categoryName);
     setActiveCategory(categoryId);
     setActiveCategoryName(categoryName);
     fetchProducts(categoryId, searchKey);
@@ -156,9 +147,7 @@ export default function ProductGrid() {
       ? products
       : products.filter((product) => product.categoryId === activeCategory);
 
-  console.log("Filtered products:", filteredProducts);
-  console.log("Categories before rendering CategoryTabs:", categories);
-
+  
   return (
     <div className="min-h-screen py-8 px-4">
       <div className="max-w-3xl mx-auto">

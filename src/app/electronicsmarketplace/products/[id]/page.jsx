@@ -27,11 +27,7 @@ export default function ProductPage() {
         setLoading(true);
         setError(null);
 
-        console.log("Fetching products for ID:", id);
-        console.log("BASE_URL:", BASE_URL);
-
         const token = localStorage.getItem("token");
-        console.log("Token:", token);
         if (!token) throw new Error("Authentication token not found.");
         if (!BASE_URL) throw new Error("API base URL is not set.");
 
@@ -41,8 +37,6 @@ export default function ProductPage() {
           languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
         };
 
-        console.log("Payload:", payload);
-
         const response = await axios.post(`${BASE_URL}/user/product/listv2`, payload, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -50,13 +44,10 @@ export default function ProductPage() {
           },
         });
 
-        console.log("API Response:", response.data);
 
         const fetchedProducts = response.data?.data?.rows || [];
-        console.log("Fetched Products:", fetchedProducts);
         if (!fetchedProducts.length) throw new Error("No products found.");
 
-        // Format the products
         const formattedProducts = fetchedProducts.map((product) => ({
           id: product.id,
           name: product.productLanguages?.[0]?.name || "Unknown Product",
@@ -78,16 +69,12 @@ export default function ProductPage() {
           varientId: product.varients?.[0]?.id || null, // Add varientId
         }));
 
-        console.log("Formatted Products:", formattedProducts);
 
-        // Find the product with the matching ID
         const selectedProduct = formattedProducts.find((p) => {
           const match = p.id.toString() === id.toString();
-          console.log(`Comparing ${p.id.toString()} with ${id.toString()}: ${match}`);
           return match;
         });
 
-        console.log("Selected Product:", selectedProduct);
         if (!selectedProduct) throw new Error("Product not found.");
 
         setProduct(selectedProduct);
@@ -95,7 +82,6 @@ export default function ProductPage() {
         setSelectedStorage(selectedProduct.storage?.[0] || "");
         setIsFavorite(selectedProduct.isFavorite);
       } catch (err) {
-        console.error("Error fetching products:", err);
         setError(err.message || "Failed to load product. Please try again.");
       } finally {
         setLoading(false);
@@ -106,10 +92,6 @@ export default function ProductPage() {
       fetchProducts();
     }
   }, [id]);
-
-  useEffect(() => {
-    console.log("Product State:", product);
-  }, [product]);
 
   const updateQuantity = (change) => {
     setQuantity(Math.max(1, quantity + change));
@@ -132,7 +114,6 @@ export default function ProductPage() {
         varientId: product.varientId,
       };
 
-      console.log("Adding to cart:", cartItem);
 
       const response = await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
         headers: {
@@ -141,12 +122,10 @@ export default function ProductPage() {
         },
       });
 
-      console.log("Cart API Response:", response.data);
 
       setCartMessage(`${product.name} added to cart!`);
       setTimeout(() => setCartMessage(""), 3000);
     } catch (err) {
-      console.error("Error adding to cart:", err);
       setCartMessage("Failed to add to cart. Please try again.");
       setTimeout(() => setCartMessage(""), 3000);
     }
