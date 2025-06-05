@@ -52,7 +52,7 @@ export default function ItemCards({
               </span>
             ))
           ) : (
-            <span className="text-xs text-gray-500">No add-ons</span>
+            <span className="text-xs text-gray-500"></span>
           )}
         </div>
         <div className="flex gap-2 mt-1">

@@ -47,7 +47,7 @@ export default function CartPage() {
           productId: item.productId,
           varientId: item.varientId,
           name: item.product?.productLanguages?.[0]?.name || "Unknown Product",
-          restaurantName: item.product?.restaurant?.name || "Unknown Restaurant",
+          restaurantName: item.product?.restaurant?.name || "Unknown seller",
           description: item.product?.productLanguages?.[0]?.description || "",
           count: parseFloat(item.quantity) || 1,
           customizations: item.customizations || "",
