@@ -1,7 +1,6 @@
 import React from "react";
 import Header from "./components/Header";
 import PromoBanner from "./components/PromoBanner";
-import SearchBar from "./components/SearchBar";
 import CategoryTabs from "./components/CategoryTabs";
 import ProductGrid from "./components/ProductGrid";
 import BottomNav from "./components/BottomNav";
@@ -11,9 +10,8 @@ const HomePage = () => {
     <div className="min-h-screen bg-white">
       <div className="max-w-md mx-auto bg-[#EEF9FA] min-h-screen">
         <Header />
-        <div className="px-4 space-y-4">
+        <div className="px-4 space-y-1">
           <PromoBanner />
-          <SearchBar />
           <CategoryTabs />
           <ProductGrid />
         </div>
