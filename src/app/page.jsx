@@ -6,7 +6,7 @@ export default function MarketplaceSelection() {
   const router = useRouter();
 
   const handleNavigation = (marketplace) => {
-    router.push(`/marketplace/${marketplace}/login`);
+    router.push(`/${marketplace}/login`);
   };
 
   return (
@@ -15,19 +15,19 @@ export default function MarketplaceSelection() {
       <div className="buttonContainer">
         <button
           onClick={() => handleNavigation('foodmarketplace')}
-          className="marketplaceButton"
+          className="p-2 bg-blue-100"
         >
           Food Marketplace
         </button>
         <button
           onClick={() => handleNavigation('electronicsmarketplace')}
-          className="marketplaceButton"
+          className="p-2 bg-green-100"
         >
           Electronics Marketplace
         </button>
         <button
           onClick={() => handleNavigation('automarketplace')}
-          className="marketplaceButton"
+          className="p-2 bg-yellow-100"
         >
           Auto Marketplace
         </button>
