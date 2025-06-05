@@ -7,6 +7,7 @@ import Image from "next/image";
 import axios from "axios";
 import Card from "../components/Card";
 import { restaurants } from "../components/data/RestaurantCard";
+import BottomNav from "./components/BottomNavbar";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 const translations = {
@@ -96,6 +97,7 @@ export default function FoodMarketPlace() {
 
   return (
     <div className="flex justify-center overflow-x-hidden">
+      <BottomNav/>
       <div className="max-w-md w-full flex flex-col">
         <Header selectedLang={selectedLang} setSelectedLang={setSelectedLang} />
         {/* MAIN SECTION */}
