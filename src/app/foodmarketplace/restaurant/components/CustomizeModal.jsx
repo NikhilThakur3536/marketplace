@@ -15,8 +15,8 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
   const sizeOptions = (Array.isArray(item?.variants) ? item.variants : []).filter(
     (size) => size.name && Number.isFinite(size.price) && size.productVarientUomId
   );
-  const extraOptions = (Array.isArray(item?.addonDetails) ? item.addonDetails : []);
-
+  const extraOptions = (Array.isArray(item?.addonDetails) ? item.addonDetails : [])
+  
   useEffect(() => {
     if (sizeOptions.length > 0 && !selectedSize) {
       setSelectedSize(sizeOptions[0].name);
@@ -33,20 +33,22 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
     setExtras((prevExtras) =>
       prevExtras.includes(extraName)
         ? prevExtras.filter((e) => e !== extraName)
-        : [...prevExtras, extraName]
+        : [...prevExtras, extraName] 
     );
   };
+
+  console.log("extra",extraOptions  )
 
   const calculateTotal = () => {
     const sizePrice = sizeOptions.find((s) => s.name === selectedSize)?.price || 0;
     const extrasPrice = extras.reduce(
-      (sum, extra) =>
-        sum +
-        (extraOptions.find((e) => e.product?.productLanguages?.[0]?.name === extra)?.inventory?.price || 0),
+      (sum, extra) => sum + (extraOptions.find((e) => e.product?.productLanguages?.[0]?.name === extra)?.price || 0),
       0
     );
     return (sizePrice + extrasPrice).toFixed(2);
   };
+
+  console.log(extraOptions)
 
   const handleAddToCart = async () => {
     console.log("Add to Cart clicked, starting handleAddToCart");
@@ -62,34 +64,27 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
       if (!selectedVariant?.productVarientUomId) {
         throw new Error("Selected size is invalid or missing ID.");
       }
-      console.log("sizeoptions",sizeOptions)
-      console.log("selected variant size",selectedVariant)
+
+      {extraOptions.map((item)=>( console.log("options id",item?.id)))}
 
       const payload = {
-        productVarientUomId: selectedVariant.productVarientUomId,
-        productId: item.productId,
+        productVarientUomId:item.productVarientUomId,
+        productId:item.productId,
         quantity: 1,
-        addons: [
-          {
-            addOnProductId: item.productId,
-            addOnVarientId: selectedVariant.id,
-            productVarientUomId: selectedVariant.productVarientUomId,
+        addons: extras.map((extraName) => {
+          const extra = extraOptions.find((e) => e.product?.productLanguages?.[0]?.name === extraName);
+          if (!extra) throw new Error(`Invalid add-on: ${extraName}`);
+          return {
+            addOnId: extra?.id,
+            addOnProductId: extra?.productId,
+            addOnVarientId: extra?.product?.varients?.[0]?.id,
+            productVarientUomId: extra.product?.varients?.[0]?.productVarientUoms?.[0]?.id,
             quantity: 1,
-          },
-          ...extras.map((extraName) => {
-            const extra = extraOptions.find((e) => e.product?.productLanguages?.[0]?.name === extraName);
-            if (!extra) throw new Error(`Invalid add-on: ${extraName}`);
-            return {
-              addOnId: extra.id,
-              addOnProductId: extra?.productId,
-              addOnVarientId: extra?.product?.varients?.[0]?.id,
-              productVarientUomId: extra.product?.varients?.[0]?.productVarientUoms?.[0]?.id,
-              quantity: 1,
-            };
-          }),
-        ],
+          };
+        }),
       };
-
+      
+      console.log(extraOptions)
       console.log("Sending API request with payload:", payload);
       const response = await axios.post(`${BASE_URL}/user/cart/addv1`, payload, {
         headers: {
@@ -121,7 +116,7 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
         </div>
         <div className="relative w-full h-48 rounded-lg overflow-hidden">
           <Image
-            src={item.image || "/pizza.jpg"}
+            src={item.image || "/pizza.jpg  "}
             alt={item.name || "Item"}
             fill
             className="object-cover object-center"
@@ -168,8 +163,7 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
                     className="text-green-700"
                   />
                   <span className="text-black">
-                    {extra.product?.productLanguages?.[0]?.name} (+$
-                    {Number.isFinite(extra.inventory?.price) ? extra.inventory?.price.toFixed(2) : "0.00"})
+                    {extra.product?.productLanguages?.[0]?.name} (+${Number.isFinite(extra.inventory?.price) ? extra.inventory?.price.toFixed(2) : "0.00"})
                   </span>
                 </label>
               ))}
