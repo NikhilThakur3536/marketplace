@@ -10,7 +10,7 @@ const BottomNav = () => {
       <div className="bg-gradient-to-r from-orange-500 to-orange-700 mx-4 mb-4 rounded-2xl px-6 py-4">
         <div className="flex items-center justify-around gap-12">
           <button className="p-2"
-            onClick={()=>router.push("/electronicsmarketplace")}
+            onClick={()=>router.push("/foodmarketplace")}
           >
             <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
