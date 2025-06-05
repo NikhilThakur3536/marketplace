@@ -1,183 +1,198 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
-import { MapPin, ShoppingBag } from "lucide-react";
 import ItemCards from "./components/ItemCards";
 
-export default function Cart() {
-    const [cartItems, setCartItems] = useState([]);
-    const [totalComponents, setTotalComponents] = useState(0);
-    const [totalPrice, setTotalPrice] = useState(0);
-    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
 
-    useEffect(() => {
-        const fetchCartItems = async () => {
-            const token = localStorage.getItem("token");
-            try {
-                const payload = {
-                    languageId: "2bfa9d89-61c4-401e-aae3-346627460558"
-                };
+export default function CartPage() {
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-                const response = await axios.post(
-                    `${BASE_URL}/user/cart/listv1`,
-                    payload,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                            "Content-Type": "application/json",
-                        },
-                    }
-                );
-                const items = response.data?.data?.rows || [];
-                console.log("cart items",items)
-                setCartItems(items);
-                calculateTotal(items);
-            } catch (error) {
-                console.error("Failed to fetch cart items:", error);
-            }
+  useEffect(() => {
+    const fetchCartItems = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem("token");
+        if (!token) throw new Error("Authentication token not found.");
+
+        const payload = {
+          languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
         };
 
-        fetchCartItems();
-    }, []);
+        console.log("Fetching cart items with payload:", payload);
 
-    const calculateTotal = (items) => {
-        let totalQuantity = items.length; 
-        let totalPrice = 0;
-
-        items.forEach((item) => {
-            totalPrice += (item.priceInfo?.price || 0) * (item.quantity || 0) + (item.addons?.[0]?.priceInfo?.price || 0);
+        const response = await axios.post(`${BASE_URL}/user/cart/listv2`, payload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         });
 
-        const taxRate = 0.1; // 10% tax
-        const totalTax = totalPrice * taxRate;
-        const totalPriceWithTax = totalPrice + totalTax;
+        console.log("Cart API Response:", response.data);
 
-        setTotalComponents(totalQuantity);
-        setTotalPrice(totalPriceWithTax);
-    };
-
-    const handleRemoveItem = async (cartId) => {
-        const token = localStorage.getItem("token");
-        try {
-            await axios.post(
-                `${BASE_URL}/user/cart/remove`,
-                { cartId },
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json",
-                    },
-                }
-            );
-            setCartItems((prevItems) => {
-                const updatedItems = prevItems.filter((item) => item.id !== cartId);
-                calculateTotal(updatedItems); 
-                return updatedItems;
-            });
-        } catch (error) {
-            console.error("Failed to remove item from cart:", error);
-            const fetchCartItems = async () => {
-                try {
-                    const payload = {
-                        languageId: "2bfa9d89-61c4-401e-aae3-346627460558"
-                    };
-                    const response = await axios.post(
-                        `${BASE_URL}/user/cart/listv1`,
-                        payload,
-                        {
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                                "Content-Type": "application/json",
-                            },
-                        }
-                    );
-                    const items = response.data?.data?.rows || [];
-                    setCartItems(items);
-                    calculateTotal(items);
-                } catch (fetchError) {
-                    console.error("Failed to refetch cart items:", fetchError);
-                }
-            };
-            fetchCartItems();
+        const fetchedItems = response.data?.data?.rows || [];
+        if (!fetchedItems.length) {
+          setCartItems([]);
+          return;
         }
+
+        // Format the cart items for ItemCards
+        const formattedItems = fetchedItems.map((item) => ({
+          id: `${item.productId}-${item.varientId}`,
+          productId: item.productId,
+          varientId: item.varientId,
+          name: item.product?.productLanguages?.[0]?.name || "Unknown Product",
+          restaurantName: item.product?.restaurant?.name || "Unknown Restaurant",
+          description: item.product?.productLanguages?.[0]?.description || "",
+          count: parseFloat(item.quantity) || 1,
+          customizations: item.customizations || "",
+          total: `$${(item.priceInfo?.price * item.quantity).toFixed(2)}` || "$0.00",
+          addOns: item.addons?.map((addon) => addon.name) || [],
+          image: item.product?.productImages?.[0]?.url || "/default-food.jpg",
+        }));
+
+        console.log("Formatted Cart Items:", formattedItems);
+        setCartItems(formattedItems);
+      } catch (err) {
+        console.error("Error fetching cart items:", err);
+        setError(err.message || "Failed to load cart items. Please try again.");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    return (
-        <div className="flex justify-center">
-            <div className="max-w-md w-full h-screen bg-white p-2 flex flex-col gap-4">
-                {/* Delivery Address */}
-                <div className="w-full rounded-xl px-4 bg-gradient-to-r from-blue-100 to-fuchsia-100">
-                    <div className="flex gap-4 p-4">
-                        <div className="w-[5%] flex items-center justify-center">
-                            <div className="w-fit h-fit rounded-full p-1 bg-blue-200">
-                                <MapPin color="blue" size={20} />
-                            </div>
-                        </div>
-                        <div className="flex flex-col w-[80%]">
-                            <span className="font-bold text-black text-xl">
-                                Delivery Address
-                            </span>
-                            <p className="text-xs">
-                                Koramangala, Bangalore, Karnataka 560034
-                            </p>
-                        </div>
-                        <button className="bg-white border border-gray-200 flex items-center justify-center w-fit h-fit px-6 py-2 transform translate-y-2.5">
-                            <span className="text-xs"> Change </span>
-                        </button>
-                    </div>
-                </div>
+    fetchCartItems();
+  }, []);
 
-                {/* Cart Items */}
-                <div className="w-full flex flex-col gap-2">
-                    <div className="bg-gradient-to-r from-orange-500 to-orange-700 w-full flex items-center gap-2 px-2 py-4">
-                        <ShoppingBag color="white" size={20} />
-                        <span className="text-white text-xl font-semibold">
-                            Your Items
-                        </span>
-                    </div>
+  const handleRemove = async (productId, varientId) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Authentication token not found.");
 
-                    <div className="w-full flex flex-col gap-4 p-2 bg-white border border-gray-200">
-                        {cartItems.length === 0 ? (
-                            <p className="text-sm text-gray-500">
-                                Loading cart...
-                            </p>
-                        ) : (
-                            cartItems.map((item) => (
-                                <ItemCards
-                                    key={item.id}
-                                    id={item.id}
-                                    name={item.name}
-                                    total={item.priceInfo?.price*item.quantity}
-                                    restaurantName={
-                                        item.product?.productLanguages?.[0]
-                                            ?.name || "Restaurant"
-                                    }
-                                    description={item.description || ""}
-                                    customizations={item.customizations || "None"}
-                                    count={item.quantity}
-                                    addOns={
-                                        item.addons?.map((addon) => addon.product?.productLanguages?.[0]?.name) || []
-                                    }
-                                    onRemove={handleRemoveItem}
-                                />
-                            ))
-                        )}
+      const payload = {
+        productId,
+        varientId,
+      };
 
-                        {/* Total Items and Price */}
-                        <div className="border-t pt-4 mt-4 bg-gray-50 rounded-xl p-4 shadow-sm" role="region" aria-label="Cart Summary">
-                            <div className="flex justify-between items-center mb-2">
-                                <p className="text-lg font-semibold text-gray-800">Total Items</p>
-                                <p className="text-lg font-bold text-gray-900">{totalComponents}</p>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <p className="text-lg font-semibold text-gray-800">Total Price (incl. tax)</p>
-                                <p className="text-xl font-bold text-blue-600">${totalPrice.toFixed(2)}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+      console.log("Removing cart item:", payload);
+
+      const response = await axios.post(`${BASE_URL}/api/user/cart/remove`, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("Remove Cart Item API Response:", response.data);
+
+      setCartItems(cartItems.filter((item) => item.productId !== productId || item.varientId !== varientId));
+    } catch (error) {
+      console.error("Failed to remove item:", error);
+    }
+  };
+
+  const handleUpdateQuantity = (productId, varientId, newQuantity) => {
+    if (newQuantity < 1) return; // Prevent quantity from going below 1
+    setCartItems(
+      cartItems.map((item) =>
+        item.productId === productId && item.varientId === varientId
+          ? { ...item, count: newQuantity, total: `$${((item.price * newQuantity) / item.count).toFixed(2)}` }
+          : item
+      )
     );
+  };
+
+  const calculateCartTotal = () => {
+    return cartItems
+      .reduce((sum, item) => sum + parseFloat(item.total.replace("$", "") || 0), 0)
+      .toFixed(2);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-green-600 border-r-transparent"></div>
+          <p className="mt-2 text-gray-600 font-medium">Loading your cart...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <p className="text-red-500 font-medium">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!cartItems.length) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <p className="text-gray-600 font-medium">Your cart is empty.</p>
+          <a
+            href="/menu"
+            className="mt-4 inline-block px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Browse Menu
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 py-8 px-4">
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">Your Cart</h1>
+        <div className="space-y-4">
+          {cartItems.map((item) => (
+            <ItemCards
+              key={item.id}
+              id={item.id}
+              name={item.name}
+              restaurantName={item.restaurantName}
+              description={item.description}
+              count={item.count}
+              customizations={item.customizations}
+              total={item.total}
+              addOns={item.addOns}
+              image={item.image}
+              onRemove={() => handleRemove(item.productId, item.varientId)}
+              onUpdateQuantity={(newQuantity) =>
+                handleUpdateQuantity(item.productId, item.varientId, newQuantity)
+              }
+            />
+          ))}
+        </div>
+        <div className="mt-8 p-6 bg-white rounded-lg shadow-md">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-gray-800">Cart Total</h2>
+            <span className="text-xl font-bold text-gray-800">${calculateCartTotal()}</span>
+          </div>
+          <button
+            className="w-full mt-4 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
+            onClick={() => console.log("Proceed to checkout")} 
+          >
+            Proceed to Checkout
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
