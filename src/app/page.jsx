@@ -1,5 +1,6 @@
+"use client"
+
 import { useRouter } from 'next/navigation';
-import styles from '../globals.css';
 
 export default function MarketplaceSelection() {
   const router = useRouter();
