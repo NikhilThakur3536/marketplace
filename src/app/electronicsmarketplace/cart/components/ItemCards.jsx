@@ -26,7 +26,7 @@ export default function ItemCards({
     <div className="flex w-full gap-2">
       <div className="relative w-[25%] h-24 border border-gray-200">
         <Image
-          src={"/Margherita.jpg"}
+          src={"/placeholder.jpg"}
           alt="pizza"
           fill
           className=" object-contain"
