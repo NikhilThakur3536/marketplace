@@ -211,23 +211,7 @@ export default function Restaurants() {
             (lang) => lang.languageId === "2bfa9d89-61c4-401e-aae3-346627460558"
           )?.name || "Uncategorized",
           productVarientUomId: item.varients?.[0]?.productVarientUoms?.[0]?.id,
-          variants: item.variants || [
-            {
-              name: "Small",
-              price: parseFloat(item.discountedPrice?.replace("₹", "") || 8) - 2,
-              productVarientUomId: item.variantUomId || "small-uom-id",
-            },
-            {
-              name: "Regular",
-              price: parseFloat(item.discountedPrice?.replace("₹", "") || 8),
-              productVarientUomId: item.variantUomId || "50285fd5-284a-4125-83cb-198966f38230",
-            },
-            {
-              name: "Large",
-              price: parseFloat(item.discountedPrice?.replace("₹", "") || 8) + 3,
-              productVarientUomId: item.variantUomId || "large-uom-id",
-            },
-          ],
+          variants: item.variants || "",
           addonDetails: item.addons,
         }));
 

@@ -12,11 +12,21 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
   const [extras, setExtras] = useState([]);
   const [error, setError] = useState(null);
 
+  // Filter valid size options
   const sizeOptions = (Array.isArray(item?.variants) ? item.variants : []).filter(
-    (size) => size.name && Number.isFinite(size.price) && size.productVarientUomId
+    (size) => size?.name && Number.isFinite(size?.price) && size?.productVarientUomId
   );
-  const extraOptions = (Array.isArray(item?.addonDetails) ? item.addonDetails : [])
-  
+
+  // Filter valid extra options
+  const extraOptions = (Array.isArray(item?.addonDetails) ? item.addonDetails : []).filter(
+    (extra) =>
+      extra?.id &&
+      extra?.productId &&
+      extra?.product?.productLanguages?.[0]?.name &&
+      Number.isFinite(extra?.inventory?.price)
+  );
+
+  // Set default size if available
   useEffect(() => {
     if (sizeOptions.length > 0 && !selectedSize) {
       setSelectedSize(sizeOptions[0].name);
@@ -27,65 +37,83 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
     return null;
   }
 
+  // Handle extra option selection
   const handleExtraChange = (extra) => {
     const extraName = extra.product?.productLanguages?.[0]?.name;
-    console.log("Extra changed:", extraName);
+    if (!extraName) return; // Guard against invalid extra
     setExtras((prevExtras) =>
       prevExtras.includes(extraName)
         ? prevExtras.filter((e) => e !== extraName)
-        : [...prevExtras, extraName] 
+        : [...prevExtras, extraName]
     );
   };
 
-  console.log("extra",extraOptions  )
-
+  // Calculate total price
   const calculateTotal = () => {
-    const sizePrice = sizeOptions.find((s) => s.name === selectedSize)?.price || 0;
-    const extrasPrice = extras.reduce(
-      (sum, extra) => sum + (extraOptions.find((e) => e.product?.productLanguages?.[0]?.name === extra)?.price || 0),
-      0
-    );
-    return (sizePrice + extrasPrice).toFixed(2);
+    // Default to 0 if size price is not available
+    const sizePrice =
+      sizeOptions.find((s) => s.name === selectedSize)?.price ??
+      (Number.isFinite(item?.price) ? item.price : 0);
+
+    // Calculate extras price, default to 0 if no extras or invalid prices
+    const extrasPrice = extras.reduce((sum, extra) => {
+      const extraItem = extraOptions.find(
+        (e) => e.product?.productLanguages?.[0]?.name === extra
+      );
+      const extraPrice = Number.isFinite(extraItem?.inventory?.price)
+        ? extraItem.inventory.price
+        : 0;
+      return sum + extraPrice;
+    }, 0);
+
+    // Ensure the sum is a valid number before calling toFixed
+    const total = Number.isFinite(sizePrice + extrasPrice)
+      ? sizePrice + extrasPrice
+      : 0;
+    return total.toFixed(2);
   };
 
-  console.log(extraOptions)
-
+  // Handle adding item to cart
   const handleAddToCart = async () => {
-    console.log("Add to Cart clicked, starting handleAddToCart");
     setError(null);
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Authentication token not found.");
       if (!BASE_URL) throw new Error("API base URL is not set.");
       if (!item.productId) throw new Error("Product ID is missing.");
-      if (!selectedSize) throw new Error("Please select a size.");
 
-      const selectedVariant = sizeOptions.find((s) => s.name === selectedSize);
-      if (!selectedVariant?.productVarientUomId) {
-        throw new Error("Selected size is invalid or missing ID.");
+      // Determine productVarientUomId
+      let productVarientUomId;
+      if (sizeOptions.length > 0) {
+        const selectedVariant = sizeOptions.find((s) => s.name === selectedSize);
+        if (!selectedVariant?.productVarientUomId) {
+          throw new Error("Selected size is invalid or missing ID.");
+        }
+        productVarientUomId = selectedVariant.productVarientUomId;
+      } else {
+        // Use item-level productVarientUomId if available, or null
+        productVarientUomId = item.productVarientUomId || null;
       }
 
-      {extraOptions.map((item)=>( console.log("options id",item?.id)))}
-
       const payload = {
-        productVarientUomId:item.productVarientUomId,
-        productId:item.productId,
+        productVarientUomId: productVarientUomId,
+        productId: item.productId,
         quantity: 1,
         addons: extras.map((extraName) => {
-          const extra = extraOptions.find((e) => e.product?.productLanguages?.[0]?.name === extraName);
+          const extra = extraOptions.find(
+            (e) => e.product?.productLanguages?.[0]?.name === extraName
+          );
           if (!extra) throw new Error(`Invalid add-on: ${extraName}`);
           return {
-            addOnId: extra?.id,
-            addOnProductId: extra?.productId,
-            addOnVarientId: extra?.product?.varients?.[0]?.id,
-            productVarientUomId: extra.product?.varients?.[0]?.productVarientUoms?.[0]?.id,
+            addOnId: extra.id,
+            addOnProductId: extra.productId,
+            addOnVarientId: extra.product?.varients?.[0]?.id || null,
+            productVarientUomId: extra.product?.varients?.[0]?.productVarientUoms?.[0]?.id || null,
             quantity: 1,
           };
         }),
       };
-      
-      console.log(extraOptions)
-      console.log("Sending API request with payload:", payload);
+
       const response = await axios.post(`${BASE_URL}/user/cart/addv1`, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -116,46 +144,41 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
         </div>
         <div className="relative w-full h-48 rounded-lg overflow-hidden">
           <Image
-            src={item.image || "/pizza.jpg  "}
+            src={item.image || "/pizza.jpg"}
             alt={item.name || "Item"}
             fill
             className="object-cover object-center"
             priority
           />
         </div>
-        <div>
-          <h3 className="text-lg font-semibold text-black">Select Size</h3>
-          <div className="flex flex-col gap-2 mt-2">
-            {sizeOptions.length > 0 ? (
-              sizeOptions.map((size) => (
+        {sizeOptions.length > 0 && (
+          <div>
+            <h3 className="text-lg font-semibold text-black">Select Size</h3>
+            <div className="flex flex-col gap-2 mt-2">
+              {sizeOptions.map((size) => (
                 <label key={size.name} className="flex items-center gap-2">
                   <input
                     type="radio"
                     name="size"
                     value={size.name}
                     checked={selectedSize === size.name}
-                    onChange={() => {
-                      console.log("Size selected:", size.name);
-                      setSelectedSize(size.name);
-                    }}
+                    onChange={() => setSelectedSize(size.name)}
                     className="text-green-700"
                   />
                   <span className="text-black">
                     {size.name} (${Number.isFinite(size.price) ? size.price.toFixed(2) : "0.00"})
                   </span>
                 </label>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500">No size options available</p>
-            )}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         {extraOptions.length > 0 && (
           <div>
             <h3 className="text-lg font-semibold text-black">Extra Options</h3>
             <div className="flex flex-col gap-2 mt-2">
               {extraOptions.map((extra) => (
-                <label key={extra?.id} className="flex items-center gap-2">
+                <label key={extra.id} className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={extras.includes(extra.product?.productLanguages?.[0]?.name)}
@@ -163,7 +186,10 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
                     className="text-green-700"
                   />
                   <span className="text-black">
-                    {extra.product?.productLanguages?.[0]?.name} (+${Number.isFinite(extra.inventory?.price) ? extra.inventory?.price.toFixed(2) : "0.00"})
+                    {extra.product?.productLanguages?.[0]?.name} (+$
+                    {Number.isFinite(extra.inventory?.price)
+                      ? extra.inventory.price.toFixed(2)
+                      : "0.00"})
                   </span>
                 </label>
               ))}
@@ -175,12 +201,7 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
           <span className="text-lg font-bold text-black">Total: ${calculateTotal()}</span>
           <button
             onClick={handleAddToCart}
-            disabled={sizeOptions.length === 0 || !selectedSize}
-            className={`font-semibold py-2 px-4 rounded-lg text-white ${
-              sizeOptions.length === 0 || !selectedSize
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-green-600 hover:bg-green-700"
-            }`}
+            className="font-semibold py-2 px-4 rounded-lg text-white bg-green-600 hover:bg-green-700"
           >
             Add to Cart
           </button>
