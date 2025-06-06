@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import ItemCard from "../components/ItemCard";
-import { map } from "zod";
 import BottomNav from "../../components/BottomNavbar";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -15,10 +14,21 @@ export default function Restaurants() {
   const params = useParams();
   const id = params?.id;
   const [restaurant, setRestaurant] = useState(null);
-  const category = ["Main Course", "Starters", "Desserts", "Beverages"];
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [menuItems, setMenuItems] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   useEffect(() => {
     const fetchRestaurantAndMenu = async () => {
@@ -34,6 +44,8 @@ export default function Restaurants() {
         if (!id) {
           throw new Error("No store ID provided");
         }
+
+        // Fetch restaurant details
         const storeResponse = await axios.post(
           `${BASE_URL}/user/store/list`,
           { limit: 1, offset: 0 },
@@ -61,6 +73,7 @@ export default function Restaurants() {
         };
         setRestaurant(restaurantData);
 
+        // Fetch menu items
         const menuResponse = await axios.post(
           `${BASE_URL}/user/product/listv1`,
           {
@@ -68,6 +81,7 @@ export default function Restaurants() {
             offset: 0,
             storeId: id,
             languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
+            ...(debouncedSearchQuery && { searchKey: debouncedSearchQuery }),
           },
           {
             headers: {
@@ -77,20 +91,45 @@ export default function Restaurants() {
           }
         );
 
-        const items = menuResponse.data.data?.rows  || [];
-        console.log("menu items",menuResponse.data.data?.rows)
+        const items = menuResponse.data.data?.rows || [];
+        console.log("menu items", menuResponse.data.data?.rows);
+
+        // Extract unique categories by id
+        const categoryMap = {};
+        items.forEach((item) => {
+          const categoryId = item.category?.id;
+          const categoryName =
+            item.category?.categoryLanguages?.find(
+              (lang) => lang.languageId === "2bfa9d89-61c4-401e-aae3-346627460558"
+            )?.name || "Uncategorized";
+
+          if (categoryId && !categoryMap[categoryId]) {
+            categoryMap[categoryId] = { id: categoryId, name: categoryName };
+          }
+        });
+
+        const uniqueCategories = Object.values(categoryMap);
+        console.log("unique categories", uniqueCategories);
+        setCategories(uniqueCategories);
+
+        // Map menu items
         const mappedItems = items.map((item) => ({
           id: item.id || item.productId || `${Date.now()}-${Math.random()}`,
-          productId: item.productId || item.id || "default-product-id", // Ensure productId
+          productId: item.productId || item.id || "default-product-id",
           isVeg: item.isVeg ?? true,
-          name: item.productLanguages?.[0].name|| "Unknown Item",
-          price: `$${parseFloat(item.varients?.[0].productVarientUoms?.[0].inventory.price || 10).toFixed(2)}`,
-          discountedPrice: `$${parseFloat(item.varients?.[0].productVarientUoms?.[0].inventory.price || item.price || 8).toFixed(2)}`,
+          name: item.productLanguages?.[0]?.name || "Unknown Item",
+          price: `$${parseFloat(
+            item.varients?.[0]?.productVarientUoms?.[0]?.inventory?.price || 10
+          ).toFixed(2)}`,
+          discountedPrice: `$${parseFloat(
+            item.varients?.[0]?.productVarientUoms?.[0]?.inventory?.price || item.price || 8
+          ).toFixed(2)}`,
           rating: item.rating || 4.0,
           totalReviews: item.totalReviews || "100+",
           description: item.description || "No description available",
           image: item.image || "/pepperoni.jpg",
-          productVarientUomId:item.varients?.[0].productVarientUoms?.[0].id,
+          category: item.category, // Store category for filtering
+          productVarientUomId: item.varients?.[0]?.productVarientUoms?.[0]?.id,
           variants: item.variants || [
             {
               name: "Small",
@@ -108,7 +147,7 @@ export default function Restaurants() {
               productVarientUomId: item.variantUomId || "large-uom-id",
             },
           ],
-          addonDetails:item.addons
+          addonDetails: item.addons,
         }));
 
         setMenuItems(mappedItems);
@@ -130,7 +169,12 @@ export default function Restaurants() {
     if (id) {
       fetchRestaurantAndMenu();
     }
-  }, [id]);
+  }, [id, debouncedSearchQuery]);
+
+  // Filter menu items based on selected category
+  const filteredMenuItems = selectedCategory
+    ? menuItems.filter((item) => item.category?.id === selectedCategory)
+    : menuItems;
 
   if (!id) {
     return <div className="container mx-auto p-4">Loading...</div>;
@@ -140,10 +184,9 @@ export default function Restaurants() {
     return <div className="container mx-auto p-4">Restaurant not found</div>;
   }
 
-
   return (
     <div className="flex justify-center overflow-x-hidden">
-      <BottomNav/>
+      <BottomNav />
       <div className="max-w-md w-full">
         <div className="w-full bg-black h-6 flex items-center px-2">
           <Link href="/foodmarketplace">
@@ -160,7 +203,9 @@ export default function Restaurants() {
                 <div className="w-fit h-fit rounded-full bg-green-700 p-1">
                   <Star size={10} color="white" fill="white" />
                 </div>
-                <span className="text-xs font-semibold">{restaurant.rating} ({restaurant.totalReviews} reviews)</span>
+                <span className="text-xs font-semibold">
+                  {restaurant.rating} ({restaurant.totalReviews} reviews)
+                </span>
                 <div className="flex items-center justify-center bg-gradient-to-r from-green-500 to-green-700/80 rounded-lg h-4 px-2">
                   <p className="text-[0.5rem] text-white">Top Rated</p>
                 </div>
@@ -185,9 +230,12 @@ export default function Restaurants() {
             </div>
             <div className="w-full flex justify-between">
               <div className="flex gap-2 flex-wrap">
-                {restaurant.itemsServ.split(", ").map((cuisine, index) => (
-                  <div key={index} className="flex justify-center items-center bg-gray-200 border border-black/30 p-1 rounded-lg text-[0.7rem] font-semibold">
-                    <p>{cuisine}</p>
+                {restaurant.itemsServ?.split(",")?.map((cuisine, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-center items-center whitespace-nowrap bg-gray-200 border border-black/30 p-1 rounded-lg text-[0.7rem] font-semibold"
+                  >
+                    <p>{cuisine.trim()}</p>
                   </div>
                 ))}
               </div>
@@ -199,22 +247,42 @@ export default function Restaurants() {
           </div>
         </div>
         <div className="w-full mt-4 bg-gray-50 rounded-lg h-12 flex items-center px-2 border border-gray-400">
-          <div className="w-full flex justify-between bg-white">
-            <div className="flex gap-2 border border-gray-400 w-[80%] rounded-lg px-1">
-              <Search color="gray" size={20} className="transform translate-y-1" />
-              <input type="text" placeholder="Search Items Here...." className="outline-none" />
+          <div className="w-full flex justify-between bg-white gap-2">
+            <div className="flex gap-2 border border-gray-400 w-[80%] rounded-lg px-1 items-center">
+              <Search color="gray" size={20} />
+              <input
+                type="text"
+                placeholder="Search by name or category..."
+                className="outline-none w-full text-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
             <div className="bg-white flex items-center justify-center px-4 py-1 border border-gray-400 rounded-lg">
-              <Filter size={20} color="black" />
-              <p className="text-[0.5rem] font-semibold">Filter</p>
+              <Filter size={18} color="black" />
+              <p className="text-[0.5rem] font-semibold ml-1">Filter</p>
             </div>
           </div>
         </div>
         <div className="w-full px-1 flex gap-3 mt-8 overflow-x-auto">
-          {category.map((item, index) => (
-            <div key={index} className="w-fit bg-gray-200 flex items-center justify-center p-1 rounded-lg">
-              <p className="text-sm text-black font-medium">{item}</p>
-            </div>
+          <button
+            onClick={() => setSelectedCategory("")}
+            className={`w-fit flex items-center justify-center p-1 rounded-lg ${
+              selectedCategory === "" ? "bg-orange-500 text-white" : "bg-gray-200 text-black"
+            }`}
+          >
+            <p className="text-sm font-medium px-2">All</p>
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              onClick={() => setSelectedCategory(category.id)}
+              className={`w-fit flex items-center justify-center p-1 rounded-lg ${
+                selectedCategory === category.id ? "bg-orange-500 text-white" : "bg-gray-200 text-black"
+              }`}
+            >
+              <p className="text-sm font-medium px-2">{category.name}</p>
+            </button>
           ))}
         </div>
         <div className="w-full flex flex-col gap-2 mt-4">
@@ -222,8 +290,8 @@ export default function Restaurants() {
             <p className="text-center text-gray-500">Loading menu items...</p>
           ) : error ? (
             <p className="text-center text-red-500">{error}</p>
-          ) : menuItems.length > 0 ? (
-            menuItems.map((item) => (
+          ) : filteredMenuItems.length > 0 ? (
+            filteredMenuItems.map((item) => (
               <ItemCard
                 key={item.id}
                 id={item.id}
@@ -242,7 +310,9 @@ export default function Restaurants() {
               />
             ))
           ) : (
-            <p className="text-center text-gray-500">No menu items available.</p>
+            <p className="text-center text-gray-600">
+              No items found{searchQuery ? ` for "${searchQuery}"` : ""} in the selected category.
+            </p>
           )}
         </div>
       </div>
