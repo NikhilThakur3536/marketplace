@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import ItemCard from "../components/ItemCard";
 import { map } from "zod";
+import BottomNav from "../../components/BottomNavbar";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -109,8 +110,6 @@ export default function Restaurants() {
           ],
           addonDetails:item.addons
         }));
-        console.log("menu items",mappedItems)
-        console.log("menu items",mappedItems?.[13]?.productVarientUomId)
 
         setMenuItems(mappedItems);
         setError(null);
@@ -144,6 +143,7 @@ export default function Restaurants() {
 
   return (
     <div className="flex justify-center overflow-x-hidden">
+      <BottomNav/>
       <div className="max-w-md w-full">
         <div className="w-full bg-black h-6 flex items-center px-2">
           <Link href="/foodmarketplace">
