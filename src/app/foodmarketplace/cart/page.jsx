@@ -206,7 +206,7 @@ export default function Cart() {
                   name={item.product?.productLanguages?.[0]?.name || "Unknown Product"}
                   total={(item.priceInfo?.price * item.quantity) || 0}
                   restaurantName={item.product?.restaurant?.name || "Unknown Restaurant"}
-                  description={item.product?.productLanguages?.[0]?.description || "No description"}
+                  description={item.product?.productLanguages?.[0]?.shortDescription || "No description"}
                   customizations={item.customizations || "None"}
                   count={item.quantity}
                   addOns={

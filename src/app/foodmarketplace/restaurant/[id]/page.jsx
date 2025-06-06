@@ -204,7 +204,7 @@ export default function Restaurants() {
           ).toFixed(2)}`,
           rating: item.rating || 4.0,
           totalReviews: item.totalReviews || "100+",
-          description: item.description || "No description available",
+          description: item.productLanguages?.[0]?.shortDescription || "No description available",
           image: item.image || "/pepperoni.jpg",
           category: item.category,
           categoryName: item.category?.categoryLanguages?.find(
