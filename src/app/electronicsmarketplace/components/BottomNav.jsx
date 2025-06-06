@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ClipboardList } from "lucide-react";
 
 const BottomNav = () => {
   const router = useRouter();
@@ -41,6 +42,9 @@ const BottomNav = () => {
               />
             </svg>
           </button>
+           <button className="p-2" onClick={() => router.push("/electronicsmarketplace/orders")}>
+                <ClipboardList color="white" size={20} />
+            </button>
         </div>
       </div>
     </div>
