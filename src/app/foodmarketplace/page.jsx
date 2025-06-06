@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import axios from "axios";
 import Card from "../components/Card";
-import { restaurants } from "../components/data/RestaurantCard";
+import Link from "next/link";
 import BottomNav from "./components/BottomNavbar";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -25,7 +25,7 @@ const translations = {
     locationPlaceholder: "સ્થાન",
     searchPlaceholder: ["શોધો", "ભોજન વસ્તુઓ", "રેસ્ટોરાં"],
     searchButton: "શોધો",
-    popularItems: "પ્રسિદ્ધ ભોજન વસ્તુઓ",
+    popularItems: "પ્રસિદ્ધ ભોજન વસ્તુઓ",
   },
   Arabic: {
     orderFood: "اطلب الطعام عبر الإنترنت من مطاعمك المفضلة",
@@ -36,19 +36,13 @@ const translations = {
     popularItems: "الأطعمة الشائعة",
   },
 };
-const popularItems = [
-  { id: 1, name: "Chilli Paneer", image: "/chillipaneer.png" },
-  { id: 2, name: "Burger", image: "/chillipaneer.png" },
-  { id: 3, name: "Pizza", image: "/chillipaneer.png" },
-  { id: 4, name: "Dosa", image: "/chillipaneer.png" },
-  { id: 5, name: "Samosa", image: "/chillipaneer.png" },
-  { id: 6, name: "Momos", image: "/chillipaneer.png" },
-];
 
 export default function FoodMarketPlace() {
   const [selectedLang, setSelectedLang] = useState("English");
   const [index, setIndex] = useState(0);
   const [stores, setStores] = useState([]);
+  const [popularItems, setPopularItems] = useState([]);
+  const [storeId, setStoreId] = useState(null);
 
   useEffect(() => {
     const lang = localStorage.getItem("selectedLang") || "English";
@@ -66,10 +60,12 @@ export default function FoodMarketPlace() {
     return () => clearInterval(interval);
   }, [selectedLang]);
 
+  // Fetch stores and set the first storeId
   useEffect(() => {
     const fetchStores = async () => {
       try {
         const token = localStorage.getItem("token");
+        if (!token) throw new Error("No token found");
         const response = await axios.post(
           `${BASE_URL}/user/store/list`,
           { limit: 4, offset: 0 },
@@ -80,24 +76,67 @@ export default function FoodMarketPlace() {
             },
           }
         );
-        console.log(response.data.data.rows?.[0].id)
-        setStores(response.data.data.rows || []);
+        const storeData = response.data.data.rows || [];
+        setStores(storeData);
+        // Set the first storeId if available
+        if (storeData.length > 0) {
+          setStoreId(storeData[0].id || "617ad5ce-7981-4e9f-afd1-c629172df441");
+        }
       } catch (error) {
         console.error("Error fetching stores:", error.response?.data || error.message);
       }
     };
     fetchStores();
   }, []);
-  
-  useEffect(()=>{
-    console.log(stores)
-  },[stores])
+
+  // Fetch popular items once storeId is available
+  useEffect(() => {
+    const fetchPopularItems = async () => {
+      if (!storeId) return; // Wait until storeId is set
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) throw new Error("No token found");
+        const response = await axios.post(
+          `${BASE_URL}/user/product/listv1`,
+          {
+            limit: 6,
+            offset: 0,
+            storeId: storeId,
+            languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const items = response.data.data?.rows || [];
+        const mappedItems = items.map((item) => ({
+          id: item.id,
+          name:
+            item.productLanguages?.find(
+              (lang) => lang.languageId === "2bfa9d89-61c4-401e-aae3-346627460558"
+            )?.name || "Unknown Item",
+          image: item.productImages?.[0]?.url || "/chillipaneer.png", // Fallback to placeholder
+        }));
+        setPopularItems(mappedItems);
+      } catch (error) {
+        console.error("Error fetching popular items:", error.response?.data || error.message);
+      }
+    };
+    fetchPopularItems();
+  }, [storeId]);
+
+  useEffect(() => {
+    console.log(stores);
+  }, [stores]);
 
   const t = translations[selectedLang] || translations.English;
 
   return (
     <div className="flex justify-center overflow-x-hidden">
-      <BottomNav/>
+      <BottomNav />
       <div className="max-w-md w-full flex flex-col">
         <Header selectedLang={selectedLang} setSelectedLang={setSelectedLang} />
         {/* MAIN SECTION */}
@@ -139,21 +178,27 @@ export default function FoodMarketPlace() {
         <section className="w-full px-2">
           <h1 className="text-black text-2xl font-bold mt-4">{t.popularItems}</h1>
           <div className="mt-8 w-full overflow-x-auto">
-            <div className="flex gap-4 w-max flex-wrap" style={{ rowGap: "2rem" }}>
-              {popularItems.map((item) => (
-                <div key={item.id} className="flex flex-col gap-2 items-center">
-                  <div className="w-32 h-32 rounded-full relative bg-gray-100 flex items-center justify-center">
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      className="object-cover object-center rounded-full ml-1 aspect-auto"
-                    />
-                  </div>
-                  <p className="text-black text-xl font-bold">{item.name}</p>
-                </div>
-              ))}
-            </div>
+            {popularItems.length > 0 ? (
+              <div className="flex gap-4 w-max flex-wrap" style={{ rowGap: "2rem" }}>
+                {popularItems.map((item) => (
+                  <Link key={item.id} href={`/foodmarketplace/restaurant/${storeId}`}>
+                    <div className="flex flex-col gap-2 items-center">
+                      <div className="w-32 h-32 rounded-full relative bg-gray-100 flex items-center justify-center">
+                        <Image
+                          src={item.image}
+                          alt={item.name}
+                          fill
+                          className="object-cover object-center rounded-full ml-1 aspect-auto"
+                        />
+                      </div>
+                      <p className="text-black text-lg font-bold">{item.name}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-gray-600 mt-4">No popular items available.</p>
+            )}
           </div>
         </section>
 
@@ -161,21 +206,21 @@ export default function FoodMarketPlace() {
         <section className="w-full px-2">
           <h1 className="text-black text-2xl font-bold mt-8">POPULAR RESTAURANTS</h1>
           {stores.length > 0 ? (
-            stores.map((item) => (    
-              <Card key={item.id} 
-                    id={item.id}
-                    name={item.location?.name} 
-                    rating={item.rating}
-                    itemsServ={item.itemsServ}
-                    deliveryTime={""}
-                    costForTwo={""}
-                    image={"/chillipaneer.png"}
+            stores.map((item) => (
+              <Card
+                key={item.id}
+                id={item.id}
+                name={item.location?.name}
+                rating={item.rating}
+                itemsServ={item.itemsServ}
+                deliveryTime={""}
+                costForTwo={""}
+                image={"/chillipaneer.png"}
               />
             ))
           ) : (
-            <p>No restaurants available.</p>
+            <p className="text-center text-gray-600 mt-4">No restaurants available.</p>
           )}
-         {/* {restaurants.map((items)=>(<Card key={items.id} {...items}/>))}  */}
         </section>
       </div>
     </div>

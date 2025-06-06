@@ -18,17 +18,29 @@ export default function ItemCard({
   variants,
   addonDetails,
   productVarientUomId,
+  addToCart, // Add addToCart prop
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleAddClick = () => {
-    console.log("ADD button clicked, opening modal for:", name);
+    console.log("ADD button clicked, opening modal for:", name, "with id:", id);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     console.log("Closing modal for:", name);
     setIsModalOpen(false);
+  };
+
+  // Callback to handle adding to cart from the modal
+  const handleAddToCart = () => {
+    console.log("Adding item to cart with id:", id);
+    if (addToCart) {
+      addToCart(id);
+    } else {
+      console.error("addToCart function is not provided to ItemCard");
+    }
+    setIsModalOpen(false); // Close modal after adding
   };
 
   // Create an item object to pass to CustomizeModal
@@ -65,10 +77,6 @@ export default function ItemCard({
             <span className="text-lg font-medium text-black">{discountedPrice}</span>
             <s className="text-sm text-gray-400">{price}</s>
           </div>
-          <div className="flex gap-2">
-            <span className="text-black text-lg font-medium">{rating}</span>
-            <span className="text-gray-400 text-sm transform translate-y-1">{totalReviews}</span>
-          </div>
           <p className="text-gray-400 text-sm">{description}</p>
           <button
             onClick={handleAddClick}
@@ -82,9 +90,10 @@ export default function ItemCard({
         </div>
       </div>
       <CustomizeModal
-        item={item} 
+        item={item}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+        addToCart={handleAddToCart} // Pass callback to modal
       />
     </>
   );

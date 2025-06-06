@@ -13,7 +13,7 @@ const BottomNav = () => {
   };
 
   return (
-    <div className="z-50 fixed bottom-0 left-1/2 transform -translate-x-1/2 max-w-md w-full">
+    <div className="z-80 fixed bottom-0 left-1/2 transform -translate-x-1/2 max-w-md w-full">
       <div
         className={`bg-gradient-to-r from-orange-500 to-orange-700 mx-4 mb-4 rounded-2xl transition-all duration-300 ease-in-out ${
           isCollapsed ? "h-12 w-12 flex items-center justify-center" : "px-6 py-4"
