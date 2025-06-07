@@ -164,7 +164,7 @@ export default function Cart() {
 
   return (
     <div className="flex justify-center">
-      <BottomNav />
+      {/* <BottomNav /> */}
       <div className="max-w-md w-full h-screen bg-white p-2 flex flex-col gap-4">
         {/* Delivery Address */}
         <div className="w-full rounded-xl px-4 bg-gradient-to-r from-blue-100 to-fuchsia-100">
