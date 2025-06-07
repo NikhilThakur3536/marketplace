@@ -78,7 +78,7 @@ export default function FoodMarketPlace() {
         );
         const storeData = response.data.data.rows || [];
         setStores(storeData);
-        // Set the first storeId if available
+          // Set the first storeId if available
         if (storeData.length > 0) {
           setStoreId(storeData[0].id || "617ad5ce-7981-4e9f-afd1-c629172df441");
         }
@@ -89,7 +89,6 @@ export default function FoodMarketPlace() {
     fetchStores();
   }, []);
 
-  // Fetch popular items once storeId is available
   useEffect(() => {
     const fetchPopularItems = async () => {
       if (!storeId) return; // Wait until storeId is set
@@ -210,12 +209,14 @@ export default function FoodMarketPlace() {
               <Card
                 key={item.id}
                 id={item.id}
-                name={item.location?.name}
+                name={item.name}
                 rating={item.rating}
                 itemsServ={item.itemsServ}
                 deliveryTime={""}
                 costForTwo={""}
                 image={"/chillipaneer.png"}
+                location={item.location?.name}
+                restaurant={item.name}
               />
             ))
           ) : (

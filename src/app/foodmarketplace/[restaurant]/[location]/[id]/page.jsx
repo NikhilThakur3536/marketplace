@@ -5,8 +5,8 @@ import { MapPin, Star, ChevronDown, Clock, ChevronRight, Search, Filter, X, Shop
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import axios from "axios";
-import ItemCard from "../components/ItemCard";
-import BottomNav from "../../components/BottomNavbar";
+import ItemCard from "../../components/ItemCard";
+import BottomNav from "../../../components/BottomNavbar";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 

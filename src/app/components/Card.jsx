@@ -4,9 +4,9 @@ import { Star, Clock, Truck } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-export default function Card({ id, name, rating, itemsServ, deliveryTime, costForTwo, image }) {
+export default function Card({ id, name, rating, itemsServ, deliveryTime, costForTwo, image, location, restaurant }) {
   return (
-    <Link href={`/foodmarketplace/restaurant/${id}`}>
+    <Link href={`/foodmarketplace/${restaurant}/${location}/${id}`}>
       <div className="w-full flex flex-col bg-white border border-gray-200 h-76 mt-4 mb-4 rounded-lg cursor-pointer hover:shadow-lg transition-shadow">
         <div className="w-full h-[60%] relative rounded-lg">
           <Image
@@ -25,7 +25,7 @@ export default function Card({ id, name, rating, itemsServ, deliveryTime, costFo
             </div>
           </div>
           <p className="text-gray-500 text-sm">{itemsServ}</p>
-          <div className="flex justify-between w-full">
+          <div className="flex justify-between w-full"> 
             <div className="flex gap-1 items-center">
               <Clock size={20} color="gray" />
               <span className="text-gray-500">{deliveryTime}</span>
