@@ -40,12 +40,17 @@ export default function Cart() {
 
         const items = response.data?.data?.rows || [];
         console.log("Cart items response:", items);
-        items.forEach((item, index) => {
-          console.log(`Item ${index} id:`, item.id, `productId:`, item.product?.id, `quantity:`, item.quantity, `variant:`, item.product?.varients?.[0]);
+        // Normalize quantity to 1 if undefined or 0
+        const normalizedItems = items.map((item) => ({
+          ...item,
+          quantity: Math.floor(item.quantity || 1),
+        }));
+        normalizedItems.forEach((item, index) => {
+          console.log(`Item ${index} id:`, item.id, `productId:`, item.product?.id, `quantity:`, item.quantity, `variant:`, item.product?.varients?.[0], `addons:`, item.addons || item.CartAddOns);
         });
 
-        setCartItems(items);
-        calculateTotal(items);
+        setCartItems(normalizedItems);
+        calculateTotal(normalizedItems);
       } catch (error) {
         console.error("Failed to fetch cart items:", error);
         setOrderStatus({ type: "error", message: "Failed to load cart items." });
@@ -58,19 +63,28 @@ export default function Cart() {
   }, []);
 
   const calculateTotal = (items) => {
-    let totalQuantity = items.reduce((sum, item) => sum + Math.floor(item.quantity || 0), 0);
+    let totalQuantity = items.reduce((sum, item) => sum + Math.floor(item.quantity || 1), 0);
     let totalPrice = 0;
 
     items.forEach((item) => {
-      totalPrice += (item.priceInfo?.price || 0) * Math.floor(item.quantity || 0);
+      const basePrice = item.priceInfo?.price || 0;
+      let addOnPrice = 0;
+
+      // Check for add-ons in item.addons or item.CartAddOns
+      const addOns = item.addons || item.CartAddOns || [];
+      if (addOns.length > 0) {
+        addOnPrice = addOns.reduce((sum, addon) => {
+          const addonPrice = addon.priceInfo?.price || addon.product?.priceInfo?.price || 0;
+          return sum + addonPrice;
+        }, 0);
+      }
+
+      const itemTotal = (basePrice + addOnPrice) * Math.floor(item.quantity || 1);
+      totalPrice += itemTotal;
     });
 
-    const taxRate = 0.1; // 10% tax
-    const totalTax = totalPrice * taxRate;
-    const totalPriceWithTax = totalPrice + totalTax;
-
     setTotalComponents(totalQuantity);
-    setTotalPrice(totalPriceWithTax);
+    setTotalPrice(totalPrice);
   };
 
   const handleRemoveItem = async (cartId) => {
@@ -108,9 +122,12 @@ export default function Cart() {
         return;
       }
 
+      // Ensure newQuantity is at least 1
+      const adjustedQuantity = Math.max(1, Math.floor(newQuantity));
+
       try {
-        console.log("Updating quantity for cartId:", cartId, "to", newQuantity);
-        console.log("Current cartItems:", cartItems.map(item => ({ id: item.id, productId: item.product?.id, quantity: item.quantity, variant: item.product?.varients?.[0] })));
+        console.log("Updating quantity for cartId:", cartId, "to", adjustedQuantity);
+        console.log("Current cartItems:", cartItems.map(item => ({ id: item.id, productId: item.product?.id, quantity: item.quantity, variant: item.product?.varients?.[0], addons: item.addons || item.CartAddOns })));
         const item = cartItems.find((item) => item.id === cartId);
         if (!item) {
           console.error("Item not found in cart for cartId:", cartId);
@@ -137,8 +154,7 @@ export default function Cart() {
         const payload = {
           cartId: cartId,
           productId: item.product.id,
-          quantity: Math.floor(newQuantity),
-          // variantId: variant.id, // Include variantId if required by API
+          quantity: adjustedQuantity,
         };
 
         console.log("Sending payload to /user/cart/edit:", payload);
@@ -154,7 +170,7 @@ export default function Cart() {
 
         setCartItems((prevItems) => {
           const updatedItems = prevItems.map((item) =>
-            item.id === cartId ? { ...item, quantity: Math.floor(newQuantity) } : item
+            item.id === cartId ? { ...item, quantity: adjustedQuantity } : item
           );
           calculateTotal(updatedItems);
           return updatedItems;
@@ -186,9 +202,14 @@ export default function Cart() {
         },
       });
       const items = response.data?.data?.rows || [];
-      console.log("Fetched cart items:", items);
-      setCartItems(items);
-      calculateTotal(items);
+      // Normalize quantity to 1 if undefined or 0
+      const normalizedItems = items.map((item) => ({
+        ...item,
+        quantity: Math.floor(item.quantity || 1),
+      }));
+      console.log("Fetched cart items:", normalizedItems);
+      setCartItems(normalizedItems);
+      calculateTotal(normalizedItems);
     } catch (fetchError) {
       console.error("Failed to refetch cart items:", fetchError);
       setOrderStatus({ type: "error", message: "Failed to sync cart." });
@@ -275,31 +296,31 @@ export default function Cart() {
             ) : (
               cartItems.map((item) => {
                 const isIncrementDisabled = item.product?.varients?.[0]?.inventory <= item.quantity;
+                const addOns = item.addons || item.CartAddOns || [];
+                const addOnPrice = addOns.reduce((sum, addon) => sum + (addon.priceInfo?.price || addon.product?.priceInfo?.price || 0), 0);
+                const itemTotal = ((item.priceInfo?.price || 0) + addOnPrice) * Math.floor(item.quantity || 1);
+
                 return (
                   <ItemCards
                     key={item.id}
                     id={item.id}
                     name={item.product?.productLanguages?.[0]?.name || "Unknown Product"}
-                    total={(item.priceInfo?.price * Math.floor(item.quantity)) || 0}
+                    total={itemTotal}
                     restaurantName={item.product?.restaurant?.name || "Unknown Restaurant"}
                     description={item.product?.productLanguages?.[0]?.shortDescription || "No description"}
                     customizations={item.customizations || "None"}
-                    count={Math.floor(item.quantity)}
+                    count={Math.floor(item.quantity || 1)}
                     addOns={
-                      item.addons?.length
-                        ? item.addons
+                      addOns.length
+                        ? addOns
                             .map((addon) => addon.product?.productLanguages?.[0]?.name)
-                            .filter(Boolean)
-                            .join(", ") || "No Add-ons"
-                        : item.CartAddOns?.length
-                        ? item.CartAddOns.map((addon) => addon.product?.productLanguages?.[0]?.name)
                             .filter(Boolean)
                             .join(", ") || "No Add-ons"
                         : "No Add-ons"
                     }
                     onRemove={() => handleRemoveItem(item.id)}
-                    onIncrement={() => debouncedUpdateQuantity(item.id, item.quantity + 1)}
-                    onDecrement={() => debouncedUpdateQuantity(item.id, item.quantity - 1)}
+                    onIncrement={() => debouncedUpdateQuantity(item.id, (item.quantity || 1) + 1)}
+                    onDecrement={() => debouncedUpdateQuantity(item.id, Math.max(1, (item.quantity || 1) - 1))}
                     isIncrementDisabled={isIncrementDisabled}
                   />
                 );
@@ -317,7 +338,7 @@ export default function Cart() {
                   <p className="text-lg font-bold text-gray-900">{totalComponents}</p>
                 </div>
                 <div className="flex justify-between items-center">
-                  <p className="text-lg font-semibold text-gray-800">Total Price (incl. tax)</p>
+                  <p className="text-lg font-semibold text-gray-800">Total Price (incl. add-ons)</p>
                   <p className="text-xl font-bold text-blue-600">${totalPrice.toFixed(2)}</p>
                 </div>
               </div>
@@ -349,7 +370,7 @@ export default function Cart() {
           className={`w-full py-4 rounded-xl text-white text-lg font-semibold ${
             cartItems.length === 0 || orderLoading
               ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
+              : "bg-blue-600 hover:bg-blue-500"
           }`}
         >
           {orderLoading ? (

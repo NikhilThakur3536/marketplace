@@ -18,23 +18,20 @@ export default function ItemCard({
   variants,
   addonDetails,
   productVarientUomId,
-  addToCart, // Add addToCart prop
+  addToCart, 
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleAddClick = () => {
-    console.log("ADD button clicked, opening modal for:", name, "with id:", id);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
-    console.log("Closing modal for:", name);
     setIsModalOpen(false);
   };
 
   // Callback to handle adding to cart from the modal
   const handleAddToCart = () => {
-    console.log("Adding item to cart with id:", id);
     if (addToCart) {
       addToCart(id);
     } else {
@@ -74,8 +71,8 @@ export default function ItemCard({
           </div>
           <h2 className="text-xl font-bold text-black">{name}</h2>
           <div className="flex gap-1">
-            <span className="text-lg font-medium text-black">{discountedPrice}</span>
-            <s className="text-sm text-gray-400">{price}</s>
+            <span className="text-lg font-medium text-black">₹{discountedPrice}</span>
+            <s className="text-sm text-gray-400">₹{price}</s>
           </div>
           <p className="text-gray-400 text-sm">{description}</p>
           <button
@@ -93,7 +90,7 @@ export default function ItemCard({
         item={item}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        addToCart={handleAddToCart} // Pass callback to modal
+        addToCart={handleAddToCart} 
       />
     </>
   );

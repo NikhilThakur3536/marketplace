@@ -14,16 +14,22 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
 
   // Filter valid size options
   const sizeOptions = (Array.isArray(item?.variants) ? item.variants : []).filter(
-    (size) => size?.name && Number.isFinite(size?.price) && size?.productVarientUomId
+    (size) => size?.name && Number.isFinite(Number(size?.price)) && size?.productVarientUomId
   );
 
   // Filter valid extra options
   const extraOptions = (Array.isArray(item?.addonDetails) ? item.addonDetails : []).filter(
-    (extra) =>
-      extra?.id &&
-      extra?.productId &&
-      extra?.product?.productLanguages?.[0]?.name &&
-      Number.isFinite(extra?.inventory?.price)
+    (extra) => {
+      const isValid = extra?.id && extra?.productId;
+      console.log("Extra validation:", {
+        id: !!extra?.id,
+        productId: !!extra?.productId,
+        name: !!extra?.product?.productLanguages?.[0]?.name,
+        price: Number.isFinite(Number(extra?.inventory?.price)),
+        extra,
+      });
+      return isValid;
+    }
   );
 
   // Set default size if available
@@ -39,8 +45,8 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
 
   // Handle extra option selection
   const handleExtraChange = (extra) => {
-    const extraName = extra.product?.productLanguages?.[0]?.name;
-    if (!extraName) return; // Guard against invalid extra
+    const extraName = extra?.product?.productLanguages?.[0]?.name || "Unnamed Add-on";
+    console.log("Toggling extra:", extraName);
     setExtras((prevExtras) =>
       prevExtras.includes(extraName)
         ? prevExtras.filter((e) => e !== extraName)
@@ -50,30 +56,26 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
 
   // Calculate total price
   const calculateTotal = () => {
-    // Default to 0 if size price is not available
-    const sizePrice =
-      sizeOptions.find((s) => s.name === selectedSize)?.price ??
-      (Number.isFinite(item?.price) ? item.price : 0);
-
-    // Calculate extras price, default to 0 if no extras or invalid prices
+    const basePrice = Number.isFinite(Number(item?.price)) ? Number(item?.price) : 0;
+    const sizePrice = sizeOptions.length > 0
+      ? Number(sizeOptions.find((s) => s.name === selectedSize)?.price ?? 0)
+      : 0;
     const extrasPrice = extras.reduce((sum, extra) => {
       const extraItem = extraOptions.find(
-        (e) => e.product?.productLanguages?.[0]?.name === extra
+        (e) => (e?.product?.productLanguages?.[0]?.name || "Unnamed Add-on") === extra
       );
-      const extraPrice = Number.isFinite(extraItem?.inventory?.price)
-        ? extraItem.inventory.price
+      const extraPrice = Number.isFinite(Number(extraItem?.inventory?.price))
+        ? Number(extraItem.inventory.price)
         : 0;
+      console.log("Extra item:", { extra, extraItem, extraPrice });
       return sum + extraPrice;
     }, 0);
-
-    // Ensure the sum is a valid number before calling toFixed
-    const total = Number.isFinite(sizePrice + extrasPrice)
-      ? sizePrice + extrasPrice
-      : 0;
+    const total = Number.isFinite(basePrice + sizePrice + extrasPrice)
+      ? basePrice + sizePrice + extrasPrice
+      : basePrice;
+    console.log("Total calculation:", { basePrice, sizePrice, extrasPrice, total });
     return total.toFixed(2);
   };
-
-  // Handle adding item to cart
   const handleAddToCart = async () => {
     setError(null);
     try {
@@ -82,7 +84,6 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
       if (!BASE_URL) throw new Error("API base URL is not set.");
       if (!item.productId) throw new Error("Product ID is missing.");
 
-      // Determine productVarientUomId
       let productVarientUomId;
       if (sizeOptions.length > 0) {
         const selectedVariant = sizeOptions.find((s) => s.name === selectedSize);
@@ -91,7 +92,6 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
         }
         productVarientUomId = selectedVariant.productVarientUomId;
       } else {
-        // Use item-level productVarientUomId if available, or null
         productVarientUomId = item.productVarientUomId || null;
       }
 
@@ -101,7 +101,7 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
         quantity: 1,
         addons: extras.map((extraName) => {
           const extra = extraOptions.find(
-            (e) => e.product?.productLanguages?.[0]?.name === extraName
+            (e) => (e?.product?.productLanguages?.[0]?.name || "Unnamed Add-on") === extraName
           );
           if (!extra) throw new Error(`Invalid add-on: ${extraName}`);
           return {
@@ -120,8 +120,6 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
           "Content-Type": "application/json",
         },
       });
-
-      console.log("Cart API call successful:", response.data);
       onClose();
     } catch (err) {
       console.error("Error adding to cart:", {
@@ -166,14 +164,14 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
                     className="text-green-700"
                   />
                   <span className="text-black">
-                    {size.name} (${Number.isFinite(size.price) ? size.price.toFixed(2) : "0.00"})
+                    {size.name} (+${Number.isFinite(Number(size.price)) ? Number(size.price).toFixed(2) : "0.00"})
                   </span>
                 </label>
               ))}
             </div>
           </div>
         )}
-        {extraOptions.length > 0 && (
+        {extraOptions.length > 0 ? (
           <div>
             <h3 className="text-lg font-semibold text-black">Extra Options</h3>
             <div className="flex flex-col gap-2 mt-2">
@@ -181,22 +179,29 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
                 <label key={extra.id} className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={extras.includes(extra.product?.productLanguages?.[0]?.name)}
+                    checked={extras.includes(
+                      extra.product?.productLanguages?.[0]?.name || "Unnamed Add-on"
+                    )}
                     onChange={() => handleExtraChange(extra)}
                     className="text-green-700"
                   />
                   <span className="text-black">
-                    {extra.product?.productLanguages?.[0]?.name} (+$
-                    {Number.isFinite(extra.inventory?.price)
-                      ? extra.inventory.price.toFixed(2)
+                    {extra.product?.productLanguages?.[0]?.name || "Unnamed Add-on"} (+$
+                    {Number.isFinite(Number(extra.inventory?.price))
+                      ? Number(extra.inventory.price).toFixed(2)
                       : "0.00"})
                   </span>
                 </label>
               ))}
             </div>
           </div>
+        ) : (
+          <p className="text-black">No add-ons available for this item.</p>
         )}
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+        {!Number.isFinite(Number(item?.price)) && (
+          <p className="text-red-500 text-sm text-center">Warning: Item price is missing or invalid.</p>
+        )}
         <div className="flex justify-between items-center">
           <span className="text-lg font-bold text-black">Total: ${calculateTotal()}</span>
           <button

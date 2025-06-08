@@ -196,10 +196,10 @@ export default function Restaurants() {
           productId: item.productId || item.id || "default-product-id",
           isVeg: item.isVeg ?? true,
           name: item.productLanguages?.[0]?.name || "Unknown Item",
-          price: `₹${parseFloat(
+          price: `${parseFloat(
             item.varients?.[0]?.productVarientUoms?.[0]?.inventory?.price || 10
           ).toFixed(2)}`,
-          discountedPrice: `₹${parseFloat(
+          discountedPrice: `${parseFloat(
             item.varients?.[0]?.productVarientUoms?.[0]?.inventory?.price || item.price || 8
           ).toFixed(2)}`,
           rating: item.rating || 4.0,
