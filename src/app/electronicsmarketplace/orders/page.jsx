@@ -185,7 +185,7 @@ export default function Orders() {
                   <p className="text-red-500 font-medium">{detailsError}</p>
                   <button
                     onClick={() => setSelectedOrder(null)}
-                    className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    className="mt-4 px-4 py-2 bg-green-400 text-white rounded-lg hover:bg-green-500 transition-colors"
                   >
                     Close
                   </button>
