@@ -131,7 +131,7 @@ export default function Orders() {
       <BottomNav />
       <div className="max-w-md w-full min-h-screen bg-gray-100 p-2 flex flex-col gap-4">
         {/* Header */}
-        <div className="w-full rounded-xl px-4 bg-gradient-to-r from-[#9FD770] to-[#64C058]">
+        <div className="w-full rounded-xl px-4 bg-gradient-to-r from-green-400 to-green-500">
           <div className="p-4">
             <span className="font-bold text-white text-xl">Your Orders</span>
           </div>
