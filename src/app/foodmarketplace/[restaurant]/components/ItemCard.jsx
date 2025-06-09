@@ -18,7 +18,7 @@ export default function ItemCard({
   variants,
   addonDetails,
   productVarientUomId,
-  addToCart, 
+  addToCart,
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -37,7 +37,7 @@ export default function ItemCard({
     } else {
       console.error("addToCart function is not provided to ItemCard");
     }
-    setIsModalOpen(false); // Close modal after adding
+    setIsModalOpen(false);
   };
 
   // Create an item object to pass to CustomizeModal
@@ -90,7 +90,7 @@ export default function ItemCard({
         item={item}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        addToCart={handleAddToCart} 
+        addToCart={handleAddToCart}
       />
     </>
   );

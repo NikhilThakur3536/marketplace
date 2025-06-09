@@ -7,7 +7,7 @@ import axios from "axios";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
 
-export default function CustomizeModal({ item, isOpen, onClose }) {
+export default function CustomizeModal({ item, isOpen, onClose, addToCart }) {
   const [selectedSize, setSelectedSize] = useState(null);
   const [extras, setExtras] = useState([]);
   const [error, setError] = useState(null);
@@ -19,17 +19,7 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
 
   // Filter valid extra options
   const extraOptions = (Array.isArray(item?.addonDetails) ? item.addonDetails : []).filter(
-    (extra) => {
-      const isValid = extra?.id && extra?.productId;
-      console.log("Extra validation:", {
-        id: !!extra?.id,
-        productId: !!extra?.productId,
-        name: !!extra?.product?.productLanguages?.[0]?.name,
-        price: Number.isFinite(Number(extra?.inventory?.price)),
-        extra,
-      });
-      return isValid;
-    }
+    (extra) => extra?.id && extra?.productId
   );
 
   // Set default size if available
@@ -46,7 +36,6 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
   // Handle extra option selection
   const handleExtraChange = (extra) => {
     const extraName = extra?.product?.productLanguages?.[0]?.name || "Unnamed Add-on";
-    console.log("Toggling extra:", extraName);
     setExtras((prevExtras) =>
       prevExtras.includes(extraName)
         ? prevExtras.filter((e) => e !== extraName)
@@ -67,15 +56,15 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
       const extraPrice = Number.isFinite(Number(extraItem?.inventory?.price))
         ? Number(extraItem.inventory.price)
         : 0;
-      console.log("Extra item:", { extra, extraItem, extraPrice });
       return sum + extraPrice;
     }, 0);
     const total = Number.isFinite(basePrice + sizePrice + extrasPrice)
       ? basePrice + sizePrice + extrasPrice
       : basePrice;
-    console.log("Total calculation:", { basePrice, sizePrice, extrasPrice, total });
     return total.toFixed(2);
   };
+
+  // Handle adding to cart
   const handleAddToCart = async () => {
     setError(null);
     try {
@@ -114,19 +103,23 @@ export default function CustomizeModal({ item, isOpen, onClose }) {
         }),
       };
 
-      const response = await axios.post(`${BASE_URL}/user/cart/addv1`, payload, {
+      await axios.post(`${BASE_URL}/user/cart/addv1`, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
+
+      // Call addToCart to update client-side cart and trigger popup
+      if (addToCart) {
+        addToCart(item.id);
+      } else {
+        console.error("addToCart function not provided to CustomizeModal");
+      }
+
       onClose();
     } catch (err) {
-      console.error("Error adding to cart:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
+      console.error("Error adding to cart:", err.message);
       setError(err.message || "Failed to add item to cart. Please try again.");
     }
   };

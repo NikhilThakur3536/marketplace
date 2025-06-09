@@ -6,22 +6,21 @@ import { useRouter } from 'next/navigation';
 
 const LoginComponent = ({
   redirectPath,
-  domainId,
   deviceId,
   deviceToken,
   showCredentialsLogin = false,
 }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loginMode, setLoginMode] = useState('guest'); 
+  const [loginMode, setLoginMode] = useState('guest');
   const [formData, setFormData] = useState({
-    domainId: '',
-    identifier: '', 
+    identifier: '',
     password: '',
   });
   const router = useRouter();
 
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+  const DOMAIN_ID = 'dcff79f1-5032-439a-8f3b-4d40da2ec7a5'; 
 
   const handleGuestLogin = async () => {
     setLoading(true);
@@ -29,7 +28,7 @@ const LoginComponent = ({
 
     try {
       const response = await axios.post(`${BASE_URL}/user/auth/guest-login`, {
-        domainId,
+        domainId: DOMAIN_ID,
         deviceId,
         deviceToken,
       });
@@ -37,17 +36,19 @@ const LoginComponent = ({
       alert('Guest login successful!');
       console.log(response.data.data.token);
       const token = response.data.data.token;
-      localStorage.setItem('token', token);
-      localStorage.setItem('domainId', domainId);
-      localStorage.setItem('deviceId', deviceId);
-      localStorage.setItem('deviceToken', deviceToken);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', token);
+        localStorage.setItem('domainId', DOMAIN_ID);
+        localStorage.setItem('deviceId', deviceId);
+        localStorage.setItem('deviceToken', deviceToken);
+      }
       console.log("Token set into local storage successfully");
       router.push(redirectPath);
     } catch (err) {
       if (err.response) {
-        setError(err.response.data.message);
+        setError(err.response.data.message || 'Guest login failed. Please try again.');
       } else {
-        setError('Guest login failed. Please try again.');
+        setError('An error occurred. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -59,12 +60,12 @@ const LoginComponent = ({
     setLoading(true);
     setError('');
 
-    console.log("form", formData)
-    const { domainId: inputDomainId, identifier, password } = formData;
+    console.log("form", formData);
+    const { identifier, password } = formData;
 
     try {
-      const response = await axios.post(`${BASE_URL}/user/auth/login`, {
-        domainId: inputDomainId,
+      const response = await axios.post(`${BASE_URL}/user/auth/customer-login`, {
+        domainId: DOMAIN_ID,
         identifier,
         password,
       });
@@ -72,8 +73,10 @@ const LoginComponent = ({
       alert('Login successful!');
       console.log(response.data.data.token);
       const token = response.data.data.token;
-      localStorage.setItem('token', token);
-      localStorage.setItem('domainId', inputDomainId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', token);
+        localStorage.setItem('domainId', DOMAIN_ID);
+      }
       console.log("Credential login successful, token set into local storage");
       router.push(redirectPath);
     } catch (err) {
@@ -124,22 +127,7 @@ const LoginComponent = ({
           <>
             <form onSubmit={handleCredentialsLogin} className="space-y-4">
               <div>
-                <label htmlFor="domainId" className="block text-sm font-medium">
-                  Domain ID
-                </label>
-                <input
-                  id="domainId"
-                  name="domainId"
-                  type="text"
-                  value={formData.domainId}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
-                  placeholder="Enter Domain ID"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="identifier" className="block text-sm font-medium">
+                <label  className="block text-sm font-medium text-gray-700">
                   Identifier (Email/Phone/Employee Code)
                 </label>
                 <input
@@ -148,13 +136,13 @@ const LoginComponent = ({
                   type="text"
                   value={formData.identifier}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter Email, Phone, or Employee Code"
                   required
                 />
               </div>
               <div>
-                <label htmlFor="password" className="block text-sm font-medium">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   Password
                 </label>
                 <input
@@ -163,7 +151,7 @@ const LoginComponent = ({
                   type="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter Password"
                   required
                 />

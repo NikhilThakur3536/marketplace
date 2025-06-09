@@ -306,9 +306,9 @@ export default function Cart() {
                     id={item.id}
                     name={item.product?.productLanguages?.[0]?.name || "Unknown Product"}
                     total={itemTotal}
-                    restaurantName={item.product?.restaurant?.name || "Unknown Restaurant"}
+                    restaurantName={item.store?.name || "Unknown Restaurant"}
                     description={item.product?.productLanguages?.[0]?.shortDescription || "No description"}
-                    customizations={item.customizations || "None"}
+                    customizations={item.customizations}
                     count={Math.floor(item.quantity || 1)}
                     addOns={
                       addOns.length

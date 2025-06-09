@@ -180,7 +180,7 @@ export default function FoodMarketPlace() {
             {popularItems.length > 0 ? (
               <div className="flex gap-4 w-max flex-wrap" style={{ rowGap: "2rem" }}>
                 {popularItems.map((item) => (
-                  <Link key={item.id} href={`/foodmarketplace/restaurant/${storeId}`}>
+                  <Link key={item.id} href={`/foodmarketplace/Tasty%20Bites/Paldi/617ad5ce-7981-4e9f-afd1-c629172df441`}>
                     <div className="flex flex-col gap-2 items-center">
                       <div className="w-32 h-32 rounded-full relative bg-gray-100 flex items-center justify-center">
                         <Image

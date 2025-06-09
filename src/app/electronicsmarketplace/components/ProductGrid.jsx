@@ -75,7 +75,7 @@ export default function ProductGrid() {
       });
 
       const fetchedProducts = response.data?.data?.rows || [];
-
+      console.log("products",response.data?.data?.rows)
       const uniqueCategories = [
         { id: "all", name: "ALL" },
         ...[...new Map(

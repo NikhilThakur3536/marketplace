@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, Heart, Star, Minus, Plus, ShoppingCart } from "lucide-react";
+import { ChevronLeft, Star, Minus, Plus, ShoppingCart } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -16,10 +16,55 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedStorage, setSelectedStorage] = useState("");
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [cartItems, setCartItems] = useState([]);
   const [cartMessage, setCartMessage] = useState("");
   const { id } = useParams();
   const router = useRouter();
+
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    const savedCart = localStorage.getItem("cart");
+    if (savedCart) {
+      try {
+        const parsedCart = JSON.parse(savedCart);
+        if (Array.isArray(parsedCart)) {
+          setCartItems(parsedCart);
+        } else {
+          console.error("Invalid cart data in localStorage, resetting to empty array");
+          setCartItems([]);
+          localStorage.setItem("cart", JSON.stringify([]));
+        }
+      } catch (e) {
+        console.error("Error parsing cart from localStorage:", e);
+        setCartItems([]);
+        localStorage.setItem("cart", JSON.stringify([]));
+      }
+    }
+  }, []);
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  // Listen for storage changes (e.g., from other tabs)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === "cart") {
+        try {
+          const newCart = e.newValue ? JSON.parse(e.newValue) : [];
+          if (Array.isArray(newCart)) {
+            setCartItems(newCart);
+          }
+        } catch (error) {
+          console.error("Error parsing updated cart from storage event:", error);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -44,8 +89,8 @@ export default function ProductPage() {
           },
         });
 
-
         const fetchedProducts = response.data?.data?.rows || [];
+        
         if (!fetchedProducts.length) throw new Error("No products found.");
 
         const formattedProducts = fetchedProducts.map((product) => ({
@@ -57,31 +102,31 @@ export default function ProductPage() {
           reviews: product.reviews || [],
           rating: product.rating || 0,
           reviewCount: product.reviewCount || 0,
-          price: Number.isFinite(product.varients?.[0]?.inventory?.price)
-            ? product.varients?.[0]?.inventory?.price
-            : 0,
-          discountedPrice: product.varients?.[0]?.discountedPrice || null,
-          discountPercentage: product.varients?.[0]?.discountPercentage || null,
+          price: Number.isFinite(product.price)
+            ? parseFloat(product.price)
+            : Number.isFinite(product.varients?.[0]?.inventory?.price)
+              ? parseFloat(product.varients?.[0]?.inventory?.price)
+              : 0,
+          discountedPrice: product.discountedPrice && Number.isFinite(product.discountPrice)
+            ? parseFloat(product.discountedPrice) : product.varients?.[0]?.discountedPrice || null,
+          discountPercentage: product.discountPercentage && Number.isFinite(product.discountPercentage)
+            ? parseFloat(product.discountPercentage) : product.varients?.[0]?.discountPercentage || null,
           image: product.productImages?.[0]?.url || "/placeholder.png",
           colors: product.varients?.[0]?.colors || ["Silver"],
           storage: product.varients?.[0]?.storage || ["512GB"],
           isFavorite: product.isFavorite || false,
-          varientId: product.varients?.[0]?.id || null, // Add varientId
+          varientId: product.varients?.[0]?.id || null,
         }));
 
-
-        const selectedProduct = formattedProducts.find((p) => {
-          const match = p.id.toString() === id.toString();
-          return match;
-        });
+        const selectedProduct = formattedProducts.find((p) => p.id.toString() === id.toString());
 
         if (!selectedProduct) throw new Error("Product not found.");
 
         setProduct(selectedProduct);
         setSelectedColor(selectedProduct.colors?.[0] || "");
         setSelectedStorage(selectedProduct.storage?.[0] || "");
-        setIsFavorite(selectedProduct.isFavorite);
       } catch (err) {
+        console.error("Error fetching product:", err.message);
         setError(err.message || "Failed to load product. Please try again.");
       } finally {
         setLoading(false);
@@ -97,39 +142,53 @@ export default function ProductPage() {
     setQuantity(Math.max(1, quantity + change));
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite((prev) => !prev);
-  };
-
   const addToCart = async () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Authentication token not found.");
-
       if (!product.varientId) throw new Error("Variant ID not found for this product.");
 
+      // Update server-side cart
       const cartItem = {
         productId: product.id,
         quantity,
         varientId: product.varientId,
       };
 
-
-      const response = await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
+      await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
 
+      // Update client-side cart
+      setCartItems((prevCart) => {
+        const existingItem = prevCart.find((item) => item.id === product.id && item.varientId === product.varientId);
+        let newCart;
+        if (existingItem) {
+          newCart = prevCart.map((item) =>
+            item.id === product.id && item.varientId === product.varientId
+              ? { ...item, quantity: item.quantity + quantity }
+              : item
+          );
+        } else {
+          newCart = [...prevCart, { id: product.id, varientId: product.varientId, quantity }];
+        }
+        return newCart;
+      });
 
       setCartMessage(`${product.name} added to cart!`);
       setTimeout(() => setCartMessage(""), 3000);
     } catch (err) {
+      console.error("Error adding to cart:", err.message);
       setCartMessage("Failed to add to cart. Please try again.");
       setTimeout(() => setCartMessage(""), 3000);
     }
   };
+
+  // Calculate total cart item count for notification badge
+  const cartItemCount = cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
 
   const starCount = [1, 2, 3, 4, 5];
 
@@ -156,13 +215,19 @@ export default function ProductPage() {
             className="cursor-pointer"
           />
           <span className="text-2xl font-semibold text-black">Product</span>
-          <Heart
-            size={20}
-            color={isFavorite ? "red" : "gray"}
-            fill={isFavorite ? "red" : "none"}
-            className="transform translate-y-1 cursor-pointer"
-            onClick={toggleFavorite}
-          />
+          <div className="relative">
+            <ShoppingCart
+              size={20}
+              color="black"
+              className="transform translate-y-1 cursor-pointer"
+              onClick={() => router.push("/electronicsmarketplace/cart")}
+            />
+            {cartItemCount > 0 && (
+              <span className="absolute -top-1 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                {cartItemCount}
+              </span>
+            )}
+          </div>
         </div>
         <div className="w-full px-2 pb-6">
           <div className="w-full h-56 bg-blue-200 relative rounded-xl">
@@ -272,7 +337,6 @@ export default function ProductPage() {
                 </button>
               </div>
             </div>
-            {/* Add to Cart Button */}
             <div className="mb-6">
               <button
                 onClick={addToCart}
@@ -291,7 +355,6 @@ export default function ProductPage() {
                 </p>
               )}
             </div>
-            {/* Tabbed Section */}
             <div className="mb-6">
               <div className="flex border-b border-gray-200">
                 {[
@@ -314,7 +377,6 @@ export default function ProductPage() {
                   </button>
                 ))}
               </div>
-
               <div className="mt-6">
                 {activeTab === "description" && (
                   <div>
@@ -322,7 +384,6 @@ export default function ProductPage() {
                     <p className="text-gray-600 leading-relaxed">{product.description}</p>
                   </div>
                 )}
-
                 {activeTab === "specifications" && (
                   <div className="space-y-6">
                     <div>
@@ -345,7 +406,6 @@ export default function ProductPage() {
                     </div>
                   </div>
                 )}
-
                 {activeTab === "reviews" && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -368,7 +428,6 @@ export default function ProductPage() {
                         </span>
                       </div>
                     </div>
-
                     <div className="space-y-4">
                       {product.reviews.length > 0 ? (
                         product.reviews.map((review, index) => (

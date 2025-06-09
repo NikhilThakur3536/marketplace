@@ -24,12 +24,11 @@ export default function Restaurants() {
   const [isFullMenuOpen, setIsFullMenuOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState("");
   const [cartItems, setCartItems] = useState([]);
-  const [showPopup, setShowPopup] = useState(false); 
+  const [showPopup, setShowPopup] = useState(false);
 
   // Load cart from localStorage on mount
   useEffect(() => {
     const savedCart = localStorage.getItem("cart");
-    console.log("Initial cart from localStorage:", savedCart);
     if (savedCart) {
       try {
         const parsedCart = JSON.parse(savedCart);
@@ -48,11 +47,15 @@ export default function Restaurants() {
     }
   }, []);
 
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(cartItems));
+  }, [cartItems]);
+
   // Listen for storage changes (e.g., from other tabs)
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === "cart") {
-        console.log("Storage event: cart changed:", e.newValue);
         try {
           const newCart = e.newValue ? JSON.parse(e.newValue) : [];
           if (Array.isArray(newCart)) {
@@ -68,25 +71,30 @@ export default function Restaurants() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // Save cart to localStorage whenever it changes
+  // Show popup when cart items change
   useEffect(() => {
-    console.log("Saving cart to localStorage:", cartItems);
-    localStorage.setItem("cart", JSON.stringify(cartItems));
+    if (cartItems.length > 0) {
+      setShowPopup(true);
+      const timer = setTimeout(() => setShowPopup(false), 2000);
+      return () => clearTimeout(timer);
+    }
   }, [cartItems]);
 
-  // Log cartItemCount to verify updates
-  const cartItemCount = cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
+  // Debounce search input
   useEffect(() => {
-    console.log("Cart Item Count Updated:", cartItemCount);
-  }, [cartItemCount]);
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
-  // Function to add items to cart and show popup
+  // Function to add items to cart
   const addToCart = (itemId) => {
-    console.log("addToCart called with itemId:", itemId);
     if (!itemId) {
       console.error("Invalid itemId provided to addToCart");
       return;
     }
+    console.log("Adding item to cart:", itemId); // Debug log
     setCartItems((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === itemId);
       let newCart;
@@ -97,20 +105,10 @@ export default function Restaurants() {
       } else {
         newCart = [...prevCart, { id: itemId, quantity: 1 }];
       }
-      console.log("New cart state after addToCart:", newCart);
+      console.log("Updated cart:", newCart); // Debug log
       return newCart;
     });
-    setShowPopup(true); // Show popup
-    setTimeout(() => setShowPopup(false), 2000);
   };
-
-  // Debounce search input
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery.trim());
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
 
   useEffect(() => {
     const fetchRestaurantAndMenu = async () => {
@@ -172,7 +170,6 @@ export default function Restaurants() {
         );
 
         const items = menuResponse.data.data?.rows || [];
-        console.log("menu items", menuResponse.data.data?.rows);
 
         const categoryMap = {};
         items.forEach((item) => {
@@ -188,7 +185,6 @@ export default function Restaurants() {
         });
 
         const uniqueCategories = Object.values(categoryMap);
-        console.log("unique categories", uniqueCategories);
         setCategories(uniqueCategories);
 
         const mappedItems = items.map((item) => ({
@@ -245,6 +241,8 @@ export default function Restaurants() {
     ? menuItems.filter((item) => item.category?.id === selectedTab)
     : [];
 
+  const cartItemCount = cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
+
   if (!id) {
     return <div className="container mx-auto p-4">Loading...</div>;
   }
@@ -264,7 +262,9 @@ export default function Restaurants() {
 
       {/* Popup Notification */}
       {showPopup && (
-        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-[110] transition-opacity duration-300">
+        <div
+          className="fixed top-16 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[120] transition-opacity duration-300 opacity-100"
+        >
           Item added to cart!
         </div>
       )}
@@ -280,9 +280,11 @@ export default function Restaurants() {
           <Link href="/foodmarketplace/cart" className="absolute right-2 flex items-center">
             <div className="relative">
               <ShoppingCart color="white" size={20} className="transform -translate-x-1" />
-              {/* <span className="absolute -top-1 -right-1.5 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                {cartItemCount}
-              </span> */}
+              {cartItemCount > 0 && (
+                <span className="absolute -top-1 -right-1.5 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                  {cartItemCount}
+                </span>
+              )}
             </div>
           </Link>
         </div>

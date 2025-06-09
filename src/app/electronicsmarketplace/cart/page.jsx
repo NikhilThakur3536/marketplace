@@ -8,8 +8,6 @@ import { useRouter } from "next/navigation";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
-
-
 function Button({
   children,
   onClick,
@@ -75,6 +73,7 @@ export default function Test() {
           throw new Error("No authentication token found. Please log in.");
         }
 
+        console.log("Fetching cart items from:", `${BASE_URL}/user/cart/listv2`);
         const response = await axios.post(
           `${BASE_URL}/user/cart/listv2`,
           {
@@ -88,23 +87,30 @@ export default function Test() {
           }
         );
 
+        console.log("Cart list response:", response.data);
+
         if (response.data.success && response.data.data?.rows) {
           const mappedItems = response.data.data.rows.map((item) => ({
             id: item.id,
-            productId: item.productId, // Store productId for edit API
+            productId: item.productId,
             name: item.product.productLanguages[0]?.name || "Unknown Product",
             description: item.varientLanguages?.[0]?.name || item.product.productLanguages[0]?.name || "No description",
             price: item.priceInfo.price || 0,
-            originalPrice: null, // API doesn't provide originalPrice
+            originalPrice: null,
             quantity: parseInt(item.quantity, 10) || 1,
-            image: "/placeholder.svg?height=80&width=80", // Fallback since productImages is empty
+            image: "/placeholder.svg?height=80&width=80",
             inStock: item.status === "ACTIVE",
           }));
           setCartItems(mappedItems);
         } else {
-          throw new Error("Invalid API response");
+          throw new Error("Invalid API response: success=false or missing data.rows");
         }
       } catch (err) {
+        console.error("Error fetching cart items:", {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status,
+        });
         setError(err.response?.data?.message || err.message || "Failed to fetch cart items");
       } finally {
         setLoading(false);
@@ -122,11 +128,14 @@ export default function Test() {
       }
 
       const item = cartItems.find((item) => item.id === id);
-      if (!item) return;
+      if (!item) {
+        throw new Error(`Item with id ${id} not found in cart`);
+      }
 
       const newQuantity = Math.max(0, item.quantity + change);
-      if (newQuantity === item.quantity) return; // No change needed
+      if (newQuantity === item.quantity) return;
 
+      console.log("Updating quantity:", { cartId: id, productId: item.productId, newQuantity });
       const response = await axios.post(
         `${BASE_URL}/user/cart/edit`,
         {
@@ -142,6 +151,8 @@ export default function Test() {
         }
       );
 
+      console.log("Edit cart response:", response.data);
+
       if (response.data.success) {
         setCartItems((items) =>
           items
@@ -154,12 +165,49 @@ export default function Test() {
         throw new Error(response.data.message || "Failed to update quantity");
       }
     } catch (err) {
+      console.error("Error updating quantity:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
       alert(err.response?.data?.message || err.message || "Failed to update quantity");
     }
   };
 
-  const removeItem = (id) => {
-    setCartItems((items) => items.filter((item) => item.id !== id));
+  const removeItem = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("No authentication token found. Please log in.");
+      }
+
+      console.log("Removing item with cartId:", id);
+      const response = await axios.post(
+        `${BASE_URL}/user/cart/remove`,
+        { cartId: id },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log("Remove cart response:", response.data);
+
+      if (response.data.success) {
+        setCartItems((items) => items.filter((item) => item.id !== id));
+      } else {
+        throw new Error(response.data.message || "Failed to remove item");
+      }
+    } catch (err) {
+      console.error("Error removing item:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+      alert(err.response?.data?.message || err.message || "Failed to remove item from cart");
+    }
   };
 
   const handleCheckout = async () => {
@@ -173,6 +221,7 @@ export default function Test() {
         throw new Error("Cart is empty. Add items to proceed.");
       }
 
+      console.log("Placing order:", { totalAmount: total.toFixed(2), cartItems });
       const response = await axios.post(
         `${BASE_URL}/user/order/addv2`,
         {
@@ -188,13 +237,20 @@ export default function Test() {
         }
       );
 
+      console.log("Order response:", response.data);
+
       if (response.data.success) {
-        setCartItems([]); // Clear cart on successful order
+        setCartItems([]);
         alert("Order placed successfully!");
       } else {
         throw new Error(response.data.message || "Failed to place order");
       }
     } catch (err) {
+      console.error("Error placing order:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
       alert(err.response?.data?.message || err.message || "Failed to place order");
     }
   };
@@ -239,7 +295,7 @@ export default function Test() {
         <div className="bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <ArrowLeft className="w-6 h-6 text-gray-600" onClick={()=>router.push("/electronicsmarketplace")}/>
+              <ArrowLeft className="w-6 h-6 text-gray-600" onClick={() => router.push("/electronicsmarketplace")} />
               <div>
                 <h1 className="text-xl font-bold text-gray-800">My Cart</h1>
                 <p className="text-sm text-gray-500">{cartItems.length} items</p>
@@ -259,7 +315,6 @@ export default function Test() {
             </div>
           </div>
         </div>
-        {/* Cart Items */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {cartItems.map((item) => (
             <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm">
@@ -270,7 +325,6 @@ export default function Test() {
                     <Heart className="w-3 h-3 text-gray-400" />
                   </button>
                 </div>
-
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -291,7 +345,6 @@ export default function Test() {
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
-
                   <div className="flex justify-between items-center mt-2">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-gray-800 text-base">${item.price.toFixed(2)}</span>
@@ -299,7 +352,6 @@ export default function Test() {
                         <span className="text-sm text-gray-400 line-through">${item.originalPrice.toFixed(2)}</span>
                       )}
                     </div>
-
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateQuantity(item.id, -1)}
@@ -329,12 +381,10 @@ export default function Test() {
               </div>
               <h3 className="text-lg font-semibold text-gray-800 mb-2">Your cart is empty</h3>
               <p className="text-gray-500 mb-4">Add some amazing electronics to get started!</p>
-              <Button onClick={()=>router.push("/electronicsmarketplace/")}>Continue Shopping</Button>
+              <Button onClick={() => router.push("/electronicsmarketplace/")}>Continue Shopping</Button>
             </div>
           )}
         </div>
-
-        {/* Promo Code Section */}
         {cartItems.length > 0 && (
           <div className="p-4 bg-white border-t">
             <div className="flex gap-2 mb-4">
@@ -350,7 +400,6 @@ export default function Test() {
               </div>
               <Button onClick={applyPromoCode} className="px-4 rounded-xl">Apply</Button>
             </div>
-
             {appliedPromo && (
               <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">
                 <div className="flex items-center justify-between">
@@ -366,8 +415,6 @@ export default function Test() {
                 </div>
               </div>
             )}
-
-            {/* Order Summary */}
             <div className="space-y-3 mb-4">
               <div className="flex justify-between text-gray-600">
                 <span>Subtotal</span>
@@ -388,7 +435,6 @@ export default function Test() {
                 <span>${total.toFixed(2)}</span>
               </div>
             </div>
-
             <Button size="lg" className="w-full font-semibold" onClick={handleCheckout}>
               Proceed to Checkout
             </Button>
