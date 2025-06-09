@@ -8,7 +8,7 @@ const BottomNav = () => {
 
   return (
     <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 max-w-md">
-      <div className="bg-gradient-to-r from-[#9FD770] to-[#64C058] mx-4 mb-4 rounded-2xl px-6 py-4">
+      <div className="bg-gradient-to-r from-green-400 to-green-500 mx-4 mb-4 rounded-2xl px-6 py-4">
         <div className="flex items-center justify-around gap-12">
           <button className="p-2"
             onClick={()=>router.push("/electronicsmarketplace")}

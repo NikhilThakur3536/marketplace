@@ -1,4 +1,11 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+
 export default function Header() {
+
+  const router=useRouter()
+
   return (
     <div className="flex items-center justify-between p-4 bg-[#EEF9FA]">
       <div className="flex items-center space-x-3">
@@ -11,7 +18,7 @@ export default function Header() {
         </div>
       </div>
       <div className="flex items-center space-x-4">
-        <div className="w-8 h-8 border border-gray-300 rounded-lg flex items-center justify-center">
+        <div className="w-8 h-8 border border-gray-300 rounded-lg flex items-center justify-center" onClick={()=>router.push("/electronicsmarketplace/cart")}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
             <line x1="16" y1="2" x2="16" y2="6" />

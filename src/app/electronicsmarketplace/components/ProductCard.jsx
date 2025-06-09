@@ -2,19 +2,20 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation"; // Import useRouter for navigation
+import { useRouter } from "next/navigation";
 
 const ProductCard = ({ product }) => {
   const [isFavorite, setIsFavorite] = useState(product.isFavorite);
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
 
   const toggleFavorite = (e) => {
-    e.stopPropagation(); // Prevent the click from triggering the card navigation
+    e.stopPropagation();
     setIsFavorite(!isFavorite);
+    // TODO: Add API call to update favorite status on the server
   };
 
   const handleCardClick = () => {
-    router.push(`/electronicsmarketplace/products/${product.id}`); // Navigate to the product details page
+    router.push(`/electronicsmarketplace/products/${product.id}`);
   };
 
   return (
@@ -49,23 +50,24 @@ const ProductCard = ({ product }) => {
           </svg>
         </button>
       </div>
-      <div className="space-y-1 mb-3">
+      <div className="space-y-1 mb-3 relative">
         <h3 className="font-semibold bg-gradient-to-r from-blue-500 via-violet-600 to-orange-500 bg-clip-text text-transparent line-clamp-1">
           {product.name}
         </h3>
         <p className="text-xs text-gray-500">{product.specs}</p>
         {typeof product.price === "number" && (
-          <p className="font-bold text-gray-900">${product.price.toLocaleString()}</p>
+          <p className="font-bold text-gray-900 mt-2">${product.price.toLocaleString()}</p>
         )}
-      </div>
-      <button
-        onClick={(e) => e.stopPropagation()} // Prevent the click from triggering the card navigation
-        className="w-8 h-8 bg-gradient-to-r from-[#9FD770] to-[#64C058] rounded-full flex items-center justify-center ml-auto hover:bg-green-600 transition-colors"
+        <button
+        onClick={() => router.push(`/electronicsmarketplace/products/${product.id}`)}
+        className="w-8 h-8 bg-gradient-to-r from-green-400 to-green-500 rounded-full flex items-center justify-center ml-auto hover:bg-green-600 transition-colors absolute right-4 transform -translate-y-8"
       >
         <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
       </button>
+      </div>
+      
     </div>
   );
 };

@@ -1,6 +1,6 @@
 export default function PromoBanner() {
   return (
-    <div className=" bg-gradient-to-r from-[#9FD770] to-[#64C058] rounded-2xl p-6 text-white relative overflow-hidden">
+    <div className=" bg-gradient-to-r from-green-400 to-green-500 rounded-2xl p-6 text-white relative overflow-hidden">
       <div className="relative z-10">
         <h2 className="text-2xl font-bold mb-1">Flat</h2>
         <h2 className="text-3xl font-bold mb-2">60% OFF</h2>
