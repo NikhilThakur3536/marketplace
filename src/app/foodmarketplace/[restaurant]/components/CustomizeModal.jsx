@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, Plus, Minus } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import axios from "axios";
@@ -10,6 +10,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.
 export default function CustomizeModal({ item, isOpen, onClose, addToCart }) {
   const [selectedSize, setSelectedSize] = useState(null);
   const [extras, setExtras] = useState([]);
+  const [quantity, setQuantity] = useState(1); // New state for quantity
   const [error, setError] = useState(null);
 
   // Filter valid size options
@@ -43,6 +44,18 @@ export default function CustomizeModal({ item, isOpen, onClose, addToCart }) {
     );
   };
 
+  // Handle quantity increment
+  const handleIncrement = () => {
+    setQuantity((prev) => prev + 1);
+  };
+
+  // Handle quantity decrement
+  const handleDecrement = () => {
+    if (quantity > 1) {
+      setQuantity((prev) => prev - 1);
+    }
+  };
+
   // Calculate total price
   const calculateTotal = () => {
     const basePrice = Number.isFinite(Number(item?.price)) ? Number(item?.price) : 0;
@@ -58,9 +71,10 @@ export default function CustomizeModal({ item, isOpen, onClose, addToCart }) {
         : 0;
       return sum + extraPrice;
     }, 0);
-    const total = Number.isFinite(basePrice + sizePrice + extrasPrice)
+    const subtotal = Number.isFinite(basePrice + sizePrice + extrasPrice)
       ? basePrice + sizePrice + extrasPrice
       : basePrice;
+    const total = subtotal * quantity; // Multiply by quantity
     return total.toFixed(2);
   };
 
@@ -87,7 +101,7 @@ export default function CustomizeModal({ item, isOpen, onClose, addToCart }) {
       const payload = {
         productVarientUomId: productVarientUomId,
         productId: item.productId,
-        quantity: 1,
+        quantity: quantity, // Use the selected quantity
         addons: extras.map((extraName) => {
           const extra = extraOptions.find(
             (e) => (e?.product?.productLanguages?.[0]?.name || "Unnamed Add-on") === extraName
@@ -112,7 +126,7 @@ export default function CustomizeModal({ item, isOpen, onClose, addToCart }) {
 
       // Call addToCart to update client-side cart and trigger popup
       if (addToCart) {
-        addToCart(item.id);
+        addToCart(item.id, quantity); // Pass quantity to addToCart
       } else {
         console.error("addToCart function not provided to CustomizeModal");
       }
@@ -191,6 +205,28 @@ export default function CustomizeModal({ item, isOpen, onClose, addToCart }) {
         ) : (
           <p className="text-black">No add-ons available for this item.</p>
         )}
+        {/* Quantity Selector */}
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-black">Quantity</h3>
+          <div className="flex gap-2 items-center">
+            <button
+              className="w-fit h-fit rounded-full p-1 bg-green-50"
+              onClick={handleIncrement}
+              aria-label={`Increase quantity of ${item.name || "Item"}`}
+            >
+              <Plus color="green" size={20} />
+            </button>
+            <span className="text-sm font-bold text-black">{quantity}</span>
+            <button
+              className={`w-fit h-fit rounded-full p-1 ${quantity === 1 ? "bg-gray-200 cursor-not-allowed" : "bg-red-50"}`}
+              onClick={handleDecrement}
+              disabled={quantity === 1}
+              aria-label={`Decrease quantity of ${item.name || "Item"}`}
+            >
+              <Minus color={quantity === 1 ? "gray" : "red"} size={20} />
+            </button>
+          </div>
+        </div>
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         {!Number.isFinite(Number(item?.price)) && (
           <p className="text-red-500 text-sm text-center">Warning: Item price is missing or invalid.</p>

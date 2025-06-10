@@ -79,7 +79,7 @@ export default function ItemCards({ id, name, restaurantName, description, count
                 >
                     <Trash2 color="orange" size={20} />
                 </button>
-                <span className="text-black font-bold text-lg">${total.toFixed(2)}</span>
+                <span className="text-black font-bold text-lg">₹{total.toFixed(2)}</span>
             </div>
         </div>
     );

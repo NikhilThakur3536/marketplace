@@ -540,7 +540,7 @@ export default function Cart() {
                         ? addOns
                             .map((addon) => addon.product?.productLanguages?.[0]?.name)
                             .filter(Boolean)
-                            .join(", ") || "No Add-ons"
+                            .join(", ")
                         : "No Add-ons"
                     }
                     onRemove={() => handleRemoveItem(item.id)}
@@ -575,9 +575,9 @@ export default function Cart() {
                           <p className="text-sm font-medium text-left">
                             {coupon.name || coupon.code} -{" "}
                             {coupon.isPercentage
-                              ? `${coupon.discount}% off (up to $${coupon.maxDiscount})`
-                              : `$${coupon.discount} off`}
-                            {coupon.minPurchaseAmount > 0 && ` (Min. $${coupon.minPurchaseAmount})`}
+                              ? `${coupon.discount}% off (up to ₹${coupon.maxDiscount})`
+                              : `₹${coupon.discount} off`}
+                            {coupon.minPurchaseAmount > 0 && ` (Min. ₹${coupon.minPurchaseAmount})`}
                           </p>
                           <p className="text-xs text-gray-500 text-left mt-1">
                             {coupon.description || "No description"}
@@ -594,7 +594,7 @@ export default function Cart() {
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-lg font-semibold text-gray-800">Total Price (incl. add-ons)</p>
-                  <p className="text-xl font-bold text-blue-600">${totalPrice.toFixed(2)}</p>
+                  <p className="text-xl font-bold text-blue-600">₹{totalPrice.toFixed(2)}</p>
                 </div>
                 {selectedCoupon && (
                   <div className="flex justify-between items-center mt-2">
