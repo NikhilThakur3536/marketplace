@@ -162,7 +162,7 @@ export default function Orders() {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-blue-600">
-                      ${order.totalAmount?.toFixed(2)}
+                      ₹{order.totalAmount?.toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -233,7 +233,7 @@ export default function Orders() {
                             </p>
                           </div>
                           <p className="text-sm font-bold text-blue-600">
-                            ${product.price?.toFixed(2)}
+                            ₹{product.price?.toFixed(2)}
                           </p>
                         </div>
                       ))}
@@ -243,7 +243,7 @@ export default function Orders() {
                       <div className="flex justify-between items-center">
                         <p className="text-lg font-semibold text-gray-800">Total</p>
                         <p className="text-lg font-bold text-blue-600">
-                          ${selectedOrder.totalAmount?.toFixed(2)}
+                          ₹{selectedOrder.totalAmount?.toFixed(2)}
                         </p>
                       </div>
                     </div>

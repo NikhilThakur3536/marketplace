@@ -56,7 +56,7 @@ const ProductCard = ({ product }) => {
         </h3>
         <p className="text-xs text-gray-500">{product.specs}</p>
         {typeof product.price === "number" && (
-          <p className="font-bold text-gray-900 mt-2">${product.price.toLocaleString()}</p>
+          <p className="font-bold text-gray-900 mt-2">₹{product.price.toLocaleString()}</p>
         )}
         <button
         onClick={() => router.push(`/electronicsmarketplace/products/${product.id}`)}

@@ -347,9 +347,9 @@ export default function Test() {
                   </div>
                   <div className="flex justify-between items-center mt-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-800 text-base">${item.price.toFixed(2)}</span>
+                      <span className="font-bold text-gray-800 text-base">₹{item.price.toFixed(2)}</span>
                       {item.originalPrice && (
-                        <span className="text-sm text-gray-400 line-through">${item.originalPrice.toFixed(2)}</span>
+                        <span className="text-sm text-gray-400 line-through">₹  {item.originalPrice.toFixed(2)}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -418,21 +418,21 @@ export default function Test() {
             <div className="space-y-3 mb-4">
               <div className="flex justify-between text-gray-600">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>₹{subtotal.toFixed(2)}</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Discount (60% OFF)</span>
-                  <span>-${discount.toFixed(2)}</span>
+                  <span>-₹{discount.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-gray-600">
                 <span>Delivery Fee</span>
-                <span>{deliveryFee === 0 ? "FREE" : `$${deliveryFee.toFixed(2)}`}</span>
+                <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee.toFixed(2)}`}</span>
               </div>
               <div className="flex justify-between text-lg font-bold text-gray-800 pt-2 border-t">
                 <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span>₹{total.toFixed(2)}</span>
               </div>
             </div>
             <Button size="lg" className="w-full font-semibold" onClick={handleCheckout}>

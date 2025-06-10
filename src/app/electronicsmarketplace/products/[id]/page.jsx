@@ -266,11 +266,11 @@ export default function ProductPage() {
             </h3>
             <div className="flex gap-2">
               <span className="font-bold text-2xl text-black">
-                ${product.price.toLocaleString()}
+                ₹{product.price.toLocaleString()}
               </span>
               {product.discountedPrice && (
                 <s className="text-sm text-gray-500 transform translate-y-1">
-                  ${product.discountedPrice.toLocaleString()}
+                  ₹{product.discountedPrice.toLocaleString()}
                 </s>
               )}
               {product.discountPercentage && (
