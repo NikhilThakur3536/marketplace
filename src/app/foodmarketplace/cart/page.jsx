@@ -48,14 +48,19 @@ export default function Cart() {
   // Save cart to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("cart", JSON.stringify(cartItems.map(item => ({
-        id: item.id,
-        quantity: item.quantity
-      }))));
+      localStorage.setItem(
+        "cart",
+        JSON.stringify(
+          cartItems.map((item) => ({
+            id: item.id,
+            quantity: item.quantity,
+          }))
+        )
+      );
     }
   }, [cartItems]);
 
-  // storage changes 
+  // Storage changes
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === "cart") {
@@ -248,8 +253,14 @@ export default function Cart() {
         return;
       }
 
-      const adjustedQuantity = Math.max(1, Math.floor(newQuantity));
+      const parsedQuantity = Number(newQuantity);
+      if (isNaN(parsedQuantity) || !Number.isInteger(parsedQuantity)) {
+        console.error("Invalid quantity in debouncedUpdateQuantity:", newQuantity);
+        setOrderStatus({ type: "error", message: "Quantity must be a valid integer." });
+        return;
+      }
 
+      const adjustedQuantity = Math.max(1, Math.floor(parsedQuantity));
       try {
         const item = cartItems.find((item) => item.id === cartId);
         if (!item) {
@@ -285,8 +296,7 @@ export default function Cart() {
           productId: item.product.id,
           quantity: adjustedQuantity,
         };
-
-        const response = await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
+        await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -304,6 +314,7 @@ export default function Cart() {
       } catch (error) {
         console.error("Error updating item quantity:", error);
         const errorMessage = error.response?.data?.message || error.message;
+        console.error("API error details:", error.response?.data);
         if (errorMessage.includes("d3cc") || errorMessage.includes("insufficient inventory")) {
           setOrderStatus({
             type: "error",
@@ -314,7 +325,7 @@ export default function Cart() {
         } else {
           setOrderStatus({
             type: "error",
-            message: "Failed to update quantity. Refreshing cart...",
+            message: `Failed to update quantity: ${errorMessage}`,
           });
         }
         await fetchCartItems();
@@ -322,6 +333,29 @@ export default function Cart() {
     }, 500),
     [cartItems]
   );
+
+  const handleUpdateQuantity = async (cartId, quantity) => {
+    const parsedQuantity = Number(quantity);
+    if (isNaN(parsedQuantity) || !Number.isInteger(parsedQuantity)) {
+      console.error("Invalid quantity provided:", quantity);
+      setOrderStatus({ type: "error", message: "Quantity must be a valid integer." });
+      return;
+    }
+
+    const adjustedQuantity = Math.floor(parsedQuantity);
+    if (adjustedQuantity < 0) {
+      console.error("Negative quantity provided:", adjustedQuantity);
+      setOrderStatus({ type: "error", message: "Quantity cannot be negative." });
+      return;
+    }
+
+    if (adjustedQuantity === 0) {
+      await handleRemoveItem(cartId);
+      return;
+    }
+
+    await debouncedUpdateQuantity(cartId, adjustedQuantity);
+  };
 
   const fetchCartItems = async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -340,14 +374,18 @@ export default function Cart() {
         ...item,
         quantity: Math.floor(item.quantity || 1),
       }));
-      console.log("Fetched cart items:", normalizedItems);
       setCartItems(normalizedItems);
       calculateTotal(normalizedItems);
       if (typeof window !== "undefined") {
-        localStorage.setItem("cart", JSON.stringify(normalizedItems.map(item => ({
-          id: item.id,
-          quantity: item.quantity
-        }))));
+        localStorage.setItem(
+          "cart",
+          JSON.stringify(
+            normalizedItems.map((item) => ({
+              id: item.id,
+              quantity: item.quantity,
+            }))
+          )
+        );
       }
     } catch (fetchError) {
       console.error("Failed to refetch cart items:", fetchError);
@@ -370,7 +408,6 @@ export default function Cart() {
       setOrderLoading(true);
       setOrderStatus(null);
 
-      // Base payload without coupon details
       const payload = {
         timezone: "Asia/Kolkata",
         totalAmount: totalPrice.toFixed(2),
@@ -379,14 +416,13 @@ export default function Cart() {
         orderType: orderType,
       };
 
-      // Add coupon details only if a coupon is selected
       if (selectedCoupon) {
         const couponAmount = (subTotal - totalPrice).toFixed(2);
         payload.couponCode = selectedCoupon.code;
         payload.couponAmount = couponAmount;
       }
 
-      const response = await axios.post(`${BASE_URL}/user/order/addv1`, payload, {
+      await axios.post(`${BASE_URL}/user/order/addv1`, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -452,7 +488,6 @@ export default function Cart() {
   return (
     <div className="flex justify-center">
       <div className="max-w-md w-full h-screen bg-white p-2 flex flex-col gap-4">
-        {/* Popup Notification */}
         {showPopup && (
           <div
             className={`fixed top-16 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-[120] transition-opacity duration-300 opacity-100 ${
@@ -495,7 +530,6 @@ export default function Cart() {
               </p>
             ) : (
               <>
-                {/* Order Type Selection */}
                 <div className="flex justify-between items-center mb-4">
                   <p className="text-lg font-semibold text-gray-800">Order Type</p>
                   <div className="flex gap-2">
@@ -552,6 +586,7 @@ export default function Cart() {
                       onRemove={() => handleRemoveItem(item.id)}
                       onIncrement={() => debouncedUpdateQuantity(item.id, (item.quantity || 1) + 1)}
                       onDecrement={() => debouncedUpdateQuantity(item.id, Math.max(1, (item.quantity || 1) - 1))}
+                      onUpdateQuantity={(quantity) => handleUpdateQuantity(item.id, quantity)}
                       isIncrementDisabled={isIncrementDisabled}
                     />
                   );
