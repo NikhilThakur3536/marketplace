@@ -1,4 +1,6 @@
+import Cards from "./components/Card";
 import Header from "./components/Header";
+import ItemTabs from "./components/ItemTabs";
 import SearchBar from "./components/SearchBar";
 
 export default function TestUI () {
@@ -12,7 +14,9 @@ export default function TestUI () {
                 </div>    
                 <div className="px-1 flex justify-center w-full">
                     <SearchBar/>
-                </div>    
+                </div>
+                <ItemTabs/>
+                <Cards/>    
             </div>
         </div>
     )
