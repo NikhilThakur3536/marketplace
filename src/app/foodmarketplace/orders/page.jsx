@@ -42,7 +42,6 @@ export default function Orders() {
 
         const fetchedOrders = response.data?.data?.rows || [];
         setOrders(fetchedOrders);
-        console.log( response.data?.data?.rows)
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch orders:", {
@@ -85,8 +84,6 @@ export default function Orders() {
         }
       );
 
-      console.log("Order details API response:", response.data);
-
       const fetchedOrder = response.data?.data || null;
       setOrderDetails((prev) => ({ ...prev, [orderId]: fetchedOrder }));
       setDetailsLoading((prev) => ({ ...prev, [orderId]: false }));
@@ -106,11 +103,11 @@ export default function Orders() {
 
   const handleOrderClick = (orderId) => {
     if (selectedOrderId === orderId) {
-      setSelectedOrderId(null); 
+      setSelectedOrderId(null);
     } else {
       setSelectedOrderId(orderId);
       if (!orderDetails[orderId]) {
-        fetchOrderDetails(orderId); 
+        fetchOrderDetails(orderId);
       }
     }
   };
@@ -124,9 +121,8 @@ export default function Orders() {
   };
 
   return (
-    
     <div className="flex justify-center min-h-screen bg-gray-100">
-        <BottomNav/>
+      <BottomNav />
       <div className="max-w-md w-full bg-white p-4 flex flex-col gap-4">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-700 w-full flex items-center gap-2 px-4 py-4 rounded-xl">
@@ -181,6 +177,12 @@ export default function Orders() {
                         {order.paymentType || "N/A"}
                       </span>
                     </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-semibold text-gray-600">Order Type</span>
+                      <span className="text-sm font-medium text-gray-800">
+                        {order.orderType || "N/A"}
+                      </span>
+                    </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-semibold text-gray-600">Status</span>
                       <span
@@ -225,6 +227,12 @@ export default function Orders() {
                           <span className="text-sm font-semibold text-gray-600">Payment Status</span>
                           <span className="text-sm font-medium text-gray-800">
                             {orderDetails[order.id].paymentStatus}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-semibold text-gray-600">Order Type</span>
+                          <span className="text-sm font-medium text-gray-800">
+                            {orderDetails[order.id].orderType || "N/A"}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">

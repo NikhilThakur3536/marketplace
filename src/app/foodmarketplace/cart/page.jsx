@@ -55,7 +55,7 @@ export default function Cart() {
     }
   }, [cartItems]);
 
-  // Listen for storage changes (e.g., from other tabs)
+  // storage changes 
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === "cart") {
@@ -94,7 +94,6 @@ export default function Cart() {
     }
   }, [cartItems, originalTotalPrice]);
 
-  // Set redirect URL from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const url = localStorage.getItem("lastRestaurantUrl") || "/";
@@ -129,25 +128,10 @@ export default function Cart() {
         });
 
         const items = response.data?.data?.rows || [];
-        console.log("Cart items response:", items);
         const normalizedItems = items.map((item) => ({
           ...item,
           quantity: Math.floor(item.quantity || 1),
         }));
-        normalizedItems.forEach((item, index) => {
-          console.log(
-            `Item ${index} id:`,
-            item.id,
-            `productId:`,
-            item.product?.id,
-            `quantity:`,
-            item.quantity,
-            `variant:`,
-            item.product?.varients?.[0],
-            `addons:`,
-            item.addons || item.CartAddOns
-          );
-        });
 
         setCartItems(normalizedItems);
         calculateTotal(normalizedItems);
@@ -233,7 +217,6 @@ export default function Cart() {
     }
 
     try {
-      console.log("Removing item with cartId:", cartId);
       await axios.post(
         `${BASE_URL}/user/cart/remove`,
         { cartId },
@@ -268,17 +251,6 @@ export default function Cart() {
       const adjustedQuantity = Math.max(1, Math.floor(newQuantity));
 
       try {
-        console.log("Updating quantity for cartId:", cartId, "to", adjustedQuantity);
-        console.log(
-          "Current cartItems:",
-          cartItems.map((item) => ({
-            id: item.id,
-            productId: item.product?.id,
-            quantity: item.quantity,
-            variant: item.product?.varients?.[0],
-            addons: item.addons || item.CartAddOns,
-          }))
-        );
         const item = cartItems.find((item) => item.id === cartId);
         if (!item) {
           console.error("Item not found in cart for cartId:", cartId);
@@ -314,16 +286,12 @@ export default function Cart() {
           quantity: adjustedQuantity,
         };
 
-        console.log("Sending payload to /user/cart/edit:", payload);
-
         const response = await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
-
-        console.log("API response:", response.data);
 
         setCartItems((prevItems) => {
           const updatedItems = prevItems.map((item) =>
@@ -418,8 +386,6 @@ export default function Cart() {
         payload.couponAmount = couponAmount;
       }
 
-      console.log("Placing order with payload:", payload);
-
       const response = await axios.post(`${BASE_URL}/user/order/addv1`, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -427,8 +393,6 @@ export default function Cart() {
           "x-timezone": "Asia/Kolkata",
         },
       });
-
-      console.log("Order API response:", response.data);
       setOrderStatus({ type: "success", message: "Order placed successfully!" });
       setCartItems([]);
       setTotalComponents(0);

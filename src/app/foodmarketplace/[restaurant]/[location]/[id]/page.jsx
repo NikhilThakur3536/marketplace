@@ -94,7 +94,6 @@ export default function Restaurants() {
       console.error("Invalid itemId provided to addToCart");
       return;
     }
-    console.log("Adding item to cart:", itemId); // Debug log
     setCartItems((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === itemId);
       let newCart;
@@ -105,7 +104,6 @@ export default function Restaurants() {
       } else {
         newCart = [...prevCart, { id: itemId, quantity: 1 }];
       }
-      console.log("Updated cart:", newCart); // Debug log
       return newCart;
     });
   };
