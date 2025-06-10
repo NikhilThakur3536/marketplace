@@ -4,7 +4,6 @@ import axios from "axios";
 import { MapPin, ShoppingBag } from "lucide-react";
 import ItemCards from "./components/ItemCards";
 import { useRouter } from "next/navigation";
-import BottomNav from "../components/BottomNavbar";
 import debounce from "lodash/debounce";
 
 export default function Cart() {
@@ -12,12 +11,87 @@ export default function Cart() {
   const [cartItems, setCartItems] = useState([]);
   const [totalComponents, setTotalComponents] = useState(0);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [originalTotalPrice, setOriginalTotalPrice] = useState(0);
   const [orderStatus, setOrderStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [orderLoading, setOrderLoading] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState("/");
+  const [coupons, setCoupons] = useState([]);
+  const [selectedCoupon, setSelectedCoupon] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [showPopup, setShowPopup] = useState(null);
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    const savedCart = typeof window !== "undefined" ? localStorage.getItem("cart") : null;
+    if (savedCart) {
+      try {
+        const parsedCart = JSON.parse(savedCart);
+        if (Array.isArray(parsedCart)) {
+          setCartItems(parsedCart);
+        } else {
+          console.warn("Invalid cart data in localStorage, resetting to empty array");
+          setCartItems([]);
+          localStorage.setItem("cart", JSON.stringify([]));
+        }
+      } catch (e) {
+        console.error("Error parsing cart from localStorage:", e);
+        setCartItems([]);
+        localStorage.setItem("cart", JSON.stringify([]));
+      }
+    }
+  }, []);
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cart", JSON.stringify(cartItems.map(item => ({
+        id: item.id,
+        quantity: item.quantity
+      }))));
+    }
+  }, [cartItems]);
+
+  // Listen for storage changes (e.g., from other tabs)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === "cart") {
+        try {
+          const newCart = e.newValue ? JSON.parse(e.newValue) : [];
+          if (Array.isArray(newCart)) {
+            setCartItems(newCart);
+          }
+        } catch (error) {
+          console.error("Error parsing updated cart from storage event:", error);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  // Show popup when cart items change
+  useEffect(() => {
+    if (cartItems.length > 0 && !loading) {
+      setShowPopup({ type: "success", message: "Cart updated!" });
+      const timer = setTimeout(() => setShowPopup(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [cartItems]);
+
+  // Reapply coupon when cart items change
+  useEffect(() => {
+    if (selectedCoupon && cartItems.length > 0) {
+      handleCouponSelect(selectedCoupon);
+    } else if (!cartItems.length) {
+      setSelectedCoupon(null);
+      setTotalPrice(originalTotalPrice);
+    }
+  }, [cartItems, originalTotalPrice]);
+
+  // Set redirect URL from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const url = localStorage.getItem("lastRestaurantUrl") || "/";
@@ -25,6 +99,7 @@ export default function Cart() {
     }
   }, []);
 
+  // Fetch cart items from server
   useEffect(() => {
     const fetchCartItems = async () => {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -84,6 +159,43 @@ export default function Cart() {
     fetchCartItems();
   }, [redirectUrl]);
 
+  // Fetch coupons
+  useEffect(() => {
+    const fetchCoupons = async () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token || originalTotalPrice <= 0) return;
+
+      setCouponLoading(true);
+      try {
+        const payload = {
+          limit: 4000,
+          offset: 0,
+          totalAmount: originalTotalPrice.toString(),
+        };
+
+        const response = await axios.post(`${BASE_URL}/user/coupon/list`, payload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        const couponList = response.data?.data?.rows || [];
+        const eligibleCoupons = couponList.filter(
+          (coupon) => coupon.isEligible && originalTotalPrice >= (coupon.minPurchaseAmount || 0)
+        );
+        setCoupons(eligibleCoupons);
+      } catch (error) {
+        console.error("Failed to fetch coupons:", error);
+        setOrderStatus({ type: "error", message: "Failed to load coupons." });
+      } finally {
+        setCouponLoading(false);
+      }
+    };
+
+    fetchCoupons();
+  }, [originalTotalPrice]);
+
   const calculateTotal = (items) => {
     let totalQuantity = items.reduce((sum, item) => sum + Math.floor(item.quantity || 1), 0);
     let totalPrice = 0;
@@ -105,6 +217,7 @@ export default function Cart() {
     });
 
     setTotalComponents(totalQuantity);
+    setOriginalTotalPrice(totalPrice);
     setTotalPrice(totalPrice);
   };
 
@@ -133,6 +246,7 @@ export default function Cart() {
         calculateTotal(updatedItems);
         return updatedItems;
       });
+      setShowPopup({ type: "success", message: "Item removed from cart!" });
     } catch (error) {
       console.error("Error removing item from cart:", error);
       await fetchCartItems();
@@ -214,6 +328,7 @@ export default function Cart() {
           calculateTotal(updatedItems);
           return updatedItems;
         });
+        setShowPopup({ type: "success", message: "Cart quantity updated!" });
       } catch (error) {
         console.error("Error updating item quantity:", error);
         const errorMessage = error.response?.data?.message || error.message;
@@ -256,6 +371,12 @@ export default function Cart() {
       console.log("Fetched cart items:", normalizedItems);
       setCartItems(normalizedItems);
       calculateTotal(normalizedItems);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("cart", JSON.stringify(normalizedItems.map(item => ({
+          id: item.id,
+          quantity: item.quantity
+        }))));
+      }
     } catch (fetchError) {
       console.error("Failed to refetch cart items:", fetchError);
       setOrderStatus({ type: "error", message: "Failed to sync cart." });
@@ -281,6 +402,7 @@ export default function Cart() {
         timezone: "Asia/Kolkata",
         totalAmount: totalPrice.toFixed(2),
         paymentType: "CASH",
+        couponId: selectedCoupon?.id || null,
       };
 
       console.log("Placing order with payload:", payload);
@@ -289,6 +411,7 @@ export default function Cart() {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
+          "x-timezone": "Asia/Kolkata",
         },
       });
 
@@ -297,8 +420,11 @@ export default function Cart() {
       setCartItems([]);
       setTotalComponents(0);
       setTotalPrice(0);
+      setOriginalTotalPrice(0);
+      setSelectedCoupon(null);
       if (typeof window !== "undefined") {
-        localStorage.removeItem("lastRestaurantUrl"); // Clear after order
+        localStorage.removeItem("lastRestaurantUrl");
+        localStorage.setItem("cart", JSON.stringify([]));
       }
 
       setTimeout(() => setOrderStatus(null), 5000);
@@ -313,9 +439,52 @@ export default function Cart() {
     }
   };
 
+  const handleCouponSelect = (coupon) => {
+    if (originalTotalPrice < coupon.minPurchaseAmount) {
+      setShowPopup({
+        type: "error",
+        message: `Minimum purchase of $${coupon.minPurchaseAmount} required for ${coupon.code}`,
+      });
+      setTimeout(() => setShowPopup(null), 3000);
+      return;
+    }
+
+    setSelectedCoupon(coupon);
+    let discount = 0;
+    if (coupon.isPercentage) {
+      discount = (originalTotalPrice * coupon.discount) / 100;
+      if (coupon.maxDiscount && discount > coupon.maxDiscount) {
+        discount = coupon.maxDiscount;
+      }
+    } else {
+      discount = coupon.discount;
+      if (coupon.maxDiscount && discount > coupon.maxDiscount) {
+        discount = coupon.maxDiscount;
+      }
+    }
+
+    setTotalPrice(Math.max(0, originalTotalPrice - discount));
+    setShowPopup({
+      type: "success",
+      message: `Coupon ${coupon.code} applied! Saved $${discount.toFixed(2)}`,
+    });
+    setTimeout(() => setShowPopup(null), 2000);
+  };
+
   return (
     <div className="flex justify-center">
       <div className="max-w-md w-full h-screen bg-white p-2 flex flex-col gap-4">
+        {/* Popup Notification */}
+        {showPopup && (
+          <div
+            className={`fixed top-16 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-[120] transition-opacity duration-300 opacity-100 ${
+              showPopup.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+            }`}
+          >
+            {showPopup.message}
+          </div>
+        )}
+
         <div className="w-full rounded-xl px-4 bg-gradient-to-r from-blue-100 to-fuchsia-100">
           <div className="flex gap-4 p-4">
             <div className="w-[5%] flex items-center justify-center">
@@ -384,11 +553,41 @@ export default function Cart() {
             )}
 
             {cartItems.length > 0 && (
-              <div
-                className="border-t pt-4 mt-4 bg-gray-50 rounded-xl p-4 shadow-sm"
-                role="region"
-                aria-label="Cart Summary"
-              >
+              <div className="border-t pt-4 mt-4 bg-gray-50 rounded-xl p-4 shadow-sm">
+                <div className="mb-4">
+                  <p className="text-lg font-semibold text-gray-800 mb-2">Available Coupons</p>
+                  {couponLoading ? (
+                    <p className="text-sm text-gray-500">Loading coupons...</p>
+                  ) : coupons.length === 0 ? (
+                    <p className="text-sm text-gray-500">No coupons available.</p>
+                  ) : (
+                    <div className="flex flex-row overflow-x-auto gap-3 pb-2 snap-x snap-mandatory scroll-smooth no-scrollbar">
+                      {coupons.map((coupon) => (
+                        <button
+                          key={coupon.id}
+                          onClick={() => handleCouponSelect(coupon)}
+                          className={`flex-shrink-0 w-48 p-3 rounded-lg border snap-center ${
+                            selectedCoupon?.id === coupon.id
+                              ? "border-blue-600 bg-blue-100"
+                              : "border-gray-200 hover:bg-gray-100"
+                          }`}
+                        >
+                          <p className="text-sm font-medium text-left">
+                            {coupon.name || coupon.code} -{" "}
+                            {coupon.isPercentage
+                              ? `${coupon.discount}% off (up to $${coupon.maxDiscount})`
+                              : `$${coupon.discount} off`}
+                            {coupon.minPurchaseAmount > 0 && ` (Min. $${coupon.minPurchaseAmount})`}
+                          </p>
+                          <p className="text-xs text-gray-500 text-left mt-1">
+                            {coupon.description || "No description"}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-lg font-semibold text-gray-800">Total Items</p>
                   <p className="text-lg font-bold text-gray-900">{totalComponents}</p>
@@ -397,6 +596,12 @@ export default function Cart() {
                   <p className="text-lg font-semibold text-gray-800">Total Price (incl. add-ons)</p>
                   <p className="text-xl font-bold text-blue-600">${totalPrice.toFixed(2)}</p>
                 </div>
+                {selectedCoupon && (
+                  <div className="flex justify-between items-center mt-2">
+                    <p className="text-sm text-gray-600">Coupon Applied</p>
+                    <p className="text-sm text-green-600">{selectedCoupon.name || selectedCoupon.code}</p>
+                  </div>
+                )}
               </div>
             )}
             {orderStatus && (

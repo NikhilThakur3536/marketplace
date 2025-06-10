@@ -47,9 +47,11 @@ export default function ItemCards({ id, name, restaurantName, description, count
                 <span className="text-gray-700">{restaurantName}</span>
                 <p className="text-gray-500 text-xs">{description}</p>
                 <span className="text-gray-500 text-sm font-medium">{customizations}</span>
-                <div className="flex gap-2 bg-white rounded-lg border border-gray-200 items-center justify-center w-fit h-fit p-1">
-                    <span className="text-sm">{addOns}</span>
-                </div>
+                {addOns !== "No Add-ons" && (
+                    <div className="flex gap-2 bg-white rounded-lg border border-gray-200 items-center justify-center w-fit h-fit p-1">
+                        <span className="text-sm">{addOns}</span>
+                    </div>
+                )}
                 <div className="flex gap-2 mt-1">
                     <button 
                         className={`w-fit h-fit rounded-full p-1 ${isIncrementDisabled ? 'bg-gray-200 cursor-not-allowed' : 'bg-green-50'}`}
@@ -77,7 +79,7 @@ export default function ItemCards({ id, name, restaurantName, description, count
                 >
                     <Trash2 color="orange" size={20} />
                 </button>
-                <span className="text-black font-bold text-lg">₹{total.toFixed(2)}</span>
+                <span className="text-black font-bold text-lg">${total.toFixed(2)}</span>
             </div>
         </div>
     );
