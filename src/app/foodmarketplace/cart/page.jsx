@@ -11,6 +11,7 @@ export default function Cart() {
   const [cartItems, setCartItems] = useState([]);
   const [totalComponents, setTotalComponents] = useState(0);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [subTotal, setSubTotal] = useState(0);
   const [originalTotalPrice, setOriginalTotalPrice] = useState(0);
   const [orderStatus, setOrderStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,6 +21,7 @@ export default function Cart() {
   const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [couponLoading, setCouponLoading] = useState(false);
   const [showPopup, setShowPopup] = useState(null);
+  const [orderType, setOrderType] = useState("PICKUP");
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
   // Load cart from localStorage on mount
@@ -88,6 +90,7 @@ export default function Cart() {
     } else if (!cartItems.length) {
       setSelectedCoupon(null);
       setTotalPrice(originalTotalPrice);
+      setSubTotal(originalTotalPrice);
     }
   }, [cartItems, originalTotalPrice]);
 
@@ -218,6 +221,7 @@ export default function Cart() {
 
     setTotalComponents(totalQuantity);
     setOriginalTotalPrice(totalPrice);
+    setSubTotal(totalPrice);
     setTotalPrice(totalPrice);
   };
 
@@ -398,12 +402,21 @@ export default function Cart() {
       setOrderLoading(true);
       setOrderStatus(null);
 
+      // Base payload without coupon details
       const payload = {
         timezone: "Asia/Kolkata",
         totalAmount: totalPrice.toFixed(2),
+        subTotal: subTotal.toFixed(2),
         paymentType: "CASH",
-        couponId: selectedCoupon?.id || null,
+        orderType: orderType,
       };
+
+      // Add coupon details only if a coupon is selected
+      if (selectedCoupon) {
+        const couponAmount = (subTotal - totalPrice).toFixed(2);
+        payload.couponCode = selectedCoupon.code;
+        payload.couponAmount = couponAmount;
+      }
 
       console.log("Placing order with payload:", payload);
 
@@ -420,6 +433,7 @@ export default function Cart() {
       setCartItems([]);
       setTotalComponents(0);
       setTotalPrice(0);
+      setSubTotal(0);
       setOriginalTotalPrice(0);
       setSelectedCoupon(null);
       if (typeof window !== "undefined") {
@@ -443,7 +457,7 @@ export default function Cart() {
     if (originalTotalPrice < coupon.minPurchaseAmount) {
       setShowPopup({
         type: "error",
-        message: `Minimum purchase of $${coupon.minPurchaseAmount} required for ${coupon.code}`,
+        message: `Minimum purchase of ₹${coupon.minPurchaseAmount} required for ${coupon.code}`,
       });
       setTimeout(() => setShowPopup(null), 3000);
       return;
@@ -466,7 +480,7 @@ export default function Cart() {
     setTotalPrice(Math.max(0, originalTotalPrice - discount));
     setShowPopup({
       type: "success",
-      message: `Coupon ${coupon.code} applied! Saved $${discount.toFixed(2)}`,
+      message: `Coupon ${coupon.code} applied! Saved ₹${discount.toFixed(2)}`,
     });
     setTimeout(() => setShowPopup(null), 2000);
   };
@@ -516,40 +530,69 @@ export default function Cart() {
                 {orderStatus?.type === "success" ? "Cart is empty after order." : "Your cart is empty."}
               </p>
             ) : (
-              cartItems.map((item) => {
-                const isIncrementDisabled = item.product?.varients?.[0]?.inventory <= item.quantity;
-                const addOns = item.addons || item.CartAddOns || [];
-                const addOnPrice = addOns.reduce(
-                  (sum, addon) => sum + (addon.priceInfo?.price || addon.product?.priceInfo?.price || 0),
-                  0
-                );
-                const itemTotal = ((item.priceInfo?.price || 0) + addOnPrice) * Math.floor(item.quantity || 1);
+              <>
+                {/* Order Type Selection */}
+                <div className="flex justify-between items-center mb-4">
+                  <p className="text-lg font-semibold text-gray-800">Order Type</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setOrderType("PICKUP")}
+                      className={`px-4 py-2 rounded-lg border ${
+                        orderType === "PICKUP"
+                          ? "border-blue-600 bg-blue-100 text-blue-600"
+                          : "border-gray-200 hover:bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      Pickup
+                    </button>
+                    <button
+                      onClick={() => setOrderType("DELIVERY")}
+                      className={`px-4 py-2 rounded-lg border ${
+                        orderType === "DELIVERY"
+                          ? "border-blue-600 bg-blue-100 text-blue-600"
+                          : "border-gray-200 hover:bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      Delivery
+                    </button>
+                  </div>
+                </div>
 
-                return (
-                  <ItemCards
-                    key={item.id}
-                    id={item.id}
-                    name={item.product?.productLanguages?.[0]?.name || "Unknown Product"}
-                    total={itemTotal}
-                    restaurantName={item.store?.name || "Unknown Restaurant"}
-                    description={item.product?.productLanguages?.[0]?.shortDescription || "No description"}
-                    customizations={item.customizations}
-                    count={Math.floor(item.quantity || 1)}
-                    addOns={
-                      addOns.length
-                        ? addOns
-                            .map((addon) => addon.product?.productLanguages?.[0]?.name)
-                            .filter(Boolean)
-                            .join(", ")
-                        : "No Add-ons"
-                    }
-                    onRemove={() => handleRemoveItem(item.id)}
-                    onIncrement={() => debouncedUpdateQuantity(item.id, (item.quantity || 1) + 1)}
-                    onDecrement={() => debouncedUpdateQuantity(item.id, Math.max(1, (item.quantity || 1) - 1))}
-                    isIncrementDisabled={isIncrementDisabled}
-                  />
-                );
-              })
+                {cartItems.map((item) => {
+                  const isIncrementDisabled = item.product?.varients?.[0]?.inventory <= item.quantity;
+                  const addOns = item.addons || item.CartAddOns || [];
+                  const addOnPrice = addOns.reduce(
+                    (sum, addon) => sum + (addon.priceInfo?.price || addon.product?.priceInfo?.price || 0),
+                    0
+                  );
+                  const itemTotal = ((item.priceInfo?.price || 0) + addOnPrice) * Math.floor(item.quantity || 1);
+
+                  return (
+                    <ItemCards
+                      key={item.id}
+                      id={item.id}
+                      name={item.product?.productLanguages?.[0]?.name || "Unknown Product"}
+                      total={itemTotal}
+                      restaurantName={item.store?.name || "Unknown Restaurant"}
+                      description={item.product?.productLanguages?.[0]?.shortDescription || "No description"}
+                      customizations={item.customizations}
+                      count={Math.floor(item.quantity || 1)}
+                      addOns={
+                        addOns.length
+                          ? addOns
+                              .map((addon) => addon.product?.productLanguages?.[0]?.name)
+                              .filter(Boolean)
+                              .join(", ")
+                          : "No Add-ons"
+                      }
+                      onRemove={() => handleRemoveItem(item.id)}
+                      onIncrement={() => debouncedUpdateQuantity(item.id, (item.quantity || 1) + 1)}
+                      onDecrement={() => debouncedUpdateQuantity(item.id, Math.max(1, (item.quantity || 1) - 1))}
+                      isIncrementDisabled={isIncrementDisabled}
+                    />
+                  );
+                })}
+              </>
             )}
 
             {cartItems.length > 0 && (
@@ -592,6 +635,16 @@ export default function Cart() {
                   <p className="text-lg font-semibold text-gray-800">Total Items</p>
                   <p className="text-lg font-bold text-gray-900">{totalComponents}</p>
                 </div>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-lg font-semibold text-gray-800">Subtotal</p>
+                  <p className="text-lg font-bold text-gray-900">₹{subTotal.toFixed(2)}</p>
+                </div>
+                {selectedCoupon && (
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-sm text-gray-600">Coupon Discount</p>
+                    <p className="text-sm text-green-600">₹{(subTotal - totalPrice).toFixed(2)}</p>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <p className="text-lg font-semibold text-gray-800">Total Price (incl. add-ons)</p>
                   <p className="text-xl font-bold text-blue-600">₹{totalPrice.toFixed(2)}</p>
