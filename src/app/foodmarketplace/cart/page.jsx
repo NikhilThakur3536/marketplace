@@ -15,13 +15,25 @@ export default function Cart() {
   const [orderStatus, setOrderStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [orderLoading, setOrderLoading] = useState(false);
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
+  const [redirectUrl, setRedirectUrl] = useState("/");
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const url = localStorage.getItem("lastRestaurantUrl") || "/";
+      setRedirectUrl(url);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchCartItems = async () => {
-      const token = localStorage.getItem("token");
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("redirectUrl", redirectUrl);
+        }
         setOrderStatus({ type: "error", message: "Please log in to view your cart." });
+        router.push("/foodmarketplace/login");
         setLoading(false);
         return;
       }
@@ -40,13 +52,23 @@ export default function Cart() {
 
         const items = response.data?.data?.rows || [];
         console.log("Cart items response:", items);
-        // Normalize quantity to 1 if undefined or 0
         const normalizedItems = items.map((item) => ({
           ...item,
           quantity: Math.floor(item.quantity || 1),
         }));
         normalizedItems.forEach((item, index) => {
-          console.log(`Item ${index} id:`, item.id, `productId:`, item.product?.id, `quantity:`, item.quantity, `variant:`, item.product?.varients?.[0], `addons:`, item.addons || item.CartAddOns);
+          console.log(
+            `Item ${index} id:`,
+            item.id,
+            `productId:`,
+            item.product?.id,
+            `quantity:`,
+            item.quantity,
+            `variant:`,
+            item.product?.varients?.[0],
+            `addons:`,
+            item.addons || item.CartAddOns
+          );
         });
 
         setCartItems(normalizedItems);
@@ -60,7 +82,7 @@ export default function Cart() {
     };
 
     fetchCartItems();
-  }, []);
+  }, [redirectUrl]);
 
   const calculateTotal = (items) => {
     let totalQuantity = items.reduce((sum, item) => sum + Math.floor(item.quantity || 1), 0);
@@ -70,7 +92,6 @@ export default function Cart() {
       const basePrice = item.priceInfo?.price || 0;
       let addOnPrice = 0;
 
-      // Check for add-ons in item.addons or item.CartAddOns
       const addOns = item.addons || item.CartAddOns || [];
       if (addOns.length > 0) {
         addOnPrice = addOns.reduce((sum, addon) => {
@@ -88,7 +109,7 @@ export default function Cart() {
   };
 
   const handleRemoveItem = async (cartId) => {
-    const token = localStorage.getItem("token");
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) {
       setOrderStatus({ type: "error", message: "Please log in to remove items." });
       return;
@@ -96,12 +117,16 @@ export default function Cart() {
 
     try {
       console.log("Removing item with cartId:", cartId);
-      await axios.post(`${BASE_URL}/user/cart/remove`, { cartId }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      await axios.post(
+        `${BASE_URL}/user/cart/remove`,
+        { cartId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       setCartItems((prevItems) => {
         const updatedItems = prevItems.filter((item) => item.id !== cartId);
@@ -116,18 +141,26 @@ export default function Cart() {
 
   const debouncedUpdateQuantity = useCallback(
     debounce(async (cartId, newQuantity) => {
-      const token = localStorage.getItem("token");
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token) {
         setOrderStatus({ type: "error", message: "Please log in to update cart." });
         return;
       }
 
-      // Ensure newQuantity is at least 1
       const adjustedQuantity = Math.max(1, Math.floor(newQuantity));
 
       try {
         console.log("Updating quantity for cartId:", cartId, "to", adjustedQuantity);
-        console.log("Current cartItems:", cartItems.map(item => ({ id: item.id, productId: item.product?.id, quantity: item.quantity, variant: item.product?.varients?.[0], addons: item.addons || item.CartAddOns })));
+        console.log(
+          "Current cartItems:",
+          cartItems.map((item) => ({
+            id: item.id,
+            productId: item.product?.id,
+            quantity: item.quantity,
+            variant: item.product?.varients?.[0],
+            addons: item.addons || item.CartAddOns,
+          }))
+        );
         const item = cartItems.find((item) => item.id === cartId);
         if (!item) {
           console.error("Item not found in cart for cartId:", cartId);
@@ -138,7 +171,10 @@ export default function Cart() {
 
         if (!item.product?.id) {
           console.error("Product ID missing for cartId:", cartId);
-          setOrderStatus({ type: "error", message: "Product information missing. Refreshing cart..." });
+          setOrderStatus({
+            type: "error",
+            message: "Product information missing. Refreshing cart...",
+          });
           await fetchCartItems();
           return;
         }
@@ -146,7 +182,10 @@ export default function Cart() {
         const variant = item.product.varients?.[0];
         if (!variant || !variant.id) {
           console.error("Variant ID missing for productId:", item.product.id);
-          setOrderStatus({ type: "error", message: "Product variant information missing. Refreshing cart..." });
+          setOrderStatus({
+            type: "error",
+            message: "Product variant information missing. Refreshing cart...",
+          });
           await fetchCartItems();
           return;
         }
@@ -179,9 +218,17 @@ export default function Cart() {
         console.error("Error updating item quantity:", error);
         const errorMessage = error.response?.data?.message || error.message;
         if (errorMessage.includes("d3cc") || errorMessage.includes("insufficient inventory")) {
-          setOrderStatus({ type: "error", message: `Insufficient inventory for ${item?.product?.productLanguages?.[0]?.name || 'this product'}. Please try another item.` });
+          setOrderStatus({
+            type: "error",
+            message: `Insufficient inventory for ${
+              item?.product?.productLanguages?.[0]?.name || "this product"
+            }. Please try another item.`,
+          });
         } else {
-          setOrderStatus({ type: "error", message: "Failed to update quantity. Refreshing cart..." });
+          setOrderStatus({
+            type: "error",
+            message: "Failed to update quantity. Refreshing cart...",
+          });
         }
         await fetchCartItems();
       }
@@ -190,7 +237,7 @@ export default function Cart() {
   );
 
   const fetchCartItems = async () => {
-    const token = localStorage.getItem("token");
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     try {
       const payload = {
         languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
@@ -202,7 +249,6 @@ export default function Cart() {
         },
       });
       const items = response.data?.data?.rows || [];
-      // Normalize quantity to 1 if undefined or 0
       const normalizedItems = items.map((item) => ({
         ...item,
         quantity: Math.floor(item.quantity || 1),
@@ -217,9 +263,13 @@ export default function Cart() {
   };
 
   const handlePlaceOrder = async () => {
-    const token = localStorage.getItem("token");
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("redirectUrl", redirectUrl);
+      }
       setOrderStatus({ type: "error", message: "Please log in to place an order." });
+      router.push("/login");
       return;
     }
 
@@ -247,6 +297,9 @@ export default function Cart() {
       setCartItems([]);
       setTotalComponents(0);
       setTotalPrice(0);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("lastRestaurantUrl"); // Clear after order
+      }
 
       setTimeout(() => setOrderStatus(null), 5000);
     } catch (err) {
@@ -297,7 +350,10 @@ export default function Cart() {
               cartItems.map((item) => {
                 const isIncrementDisabled = item.product?.varients?.[0]?.inventory <= item.quantity;
                 const addOns = item.addons || item.CartAddOns || [];
-                const addOnPrice = addOns.reduce((sum, addon) => sum + (addon.priceInfo?.price || addon.product?.priceInfo?.price || 0), 0);
+                const addOnPrice = addOns.reduce(
+                  (sum, addon) => sum + (addon.priceInfo?.price || addon.product?.priceInfo?.price || 0),
+                  0
+                );
                 const itemTotal = ((item.priceInfo?.price || 0) + addOnPrice) * Math.floor(item.quantity || 1);
 
                 return (
@@ -363,14 +419,17 @@ export default function Cart() {
             )}
           </div>
         </div>
-
+        <button
+          className="w-fit h-fit font-semibold px-4 pt-1 rounded-xl bg-blue-400 flex items-center"
+          onClick={() => router.push(redirectUrl)}
+        >
+          <span className="transform -translate-y-0.5 text-white">Add More Items</span>
+        </button>
         <button
           onClick={handlePlaceOrder}
           disabled={cartItems.length === 0 || orderLoading}
           className={`w-full py-4 rounded-xl text-white text-lg font-semibold ${
-            cartItems.length === 0 || orderLoading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-500"
+            cartItems.length === 0 || orderLoading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
           }`}
         >
           {orderLoading ? (

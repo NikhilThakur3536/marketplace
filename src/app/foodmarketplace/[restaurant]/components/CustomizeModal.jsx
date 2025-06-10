@@ -196,7 +196,7 @@ export default function CustomizeModal({ item, isOpen, onClose, addToCart }) {
           <p className="text-red-500 text-sm text-center">Warning: Item price is missing or invalid.</p>
         )}
         <div className="flex justify-between items-center">
-          <span className="text-lg font-bold text-black">Total: ${calculateTotal()}</span>
+          <span className="text-lg font-bold text-black">Total: ₹{calculateTotal()}</span>
           <button
             onClick={handleAddToCart}
             className="font-semibold py-2 px-4 rounded-lg text-white bg-green-600 hover:bg-green-700"

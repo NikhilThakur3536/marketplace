@@ -255,7 +255,7 @@ export default function Restaurants() {
     <div className="flex justify-center overflow-x-hidden">
       {isFullMenuOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-40 z-[90]"
+          className="fixed inset-0 bg-white bg-opacity-40 z-[90]"
           onClick={() => setIsFullMenuOpen(false)}
         ></div>
       )}

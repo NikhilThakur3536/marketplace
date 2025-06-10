@@ -42,6 +42,7 @@ export default function Orders() {
 
         const fetchedOrders = response.data?.data?.rows || [];
         setOrders(fetchedOrders);
+        console.log( response.data?.data?.rows)
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch orders:", {
@@ -171,7 +172,7 @@ export default function Orders() {
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-semibold text-gray-600">Total Amount</span>
                       <span className="text-sm font-bold text-blue-600">
-                        ${Number(order.totalAmount).toFixed(2)}
+                        ₹{Number(order.totalAmount).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center mb-2">
@@ -250,7 +251,7 @@ export default function Orders() {
                                   </p>
                                 </div>
                                 <p className="text-sm font-bold text-blue-600">
-                                  ${Number(product.price).toFixed(2)}
+                                  ₹{Number(product.price).toFixed(2)}
                                 </p>
                               </div>
                             ))}
