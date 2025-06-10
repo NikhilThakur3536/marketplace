@@ -27,7 +27,7 @@ const translations = {
     locationPlaceholder: "સ્થાન",
     searchPlaceholder: ["શોધો", "ભોજન વસ્તુઓ", "રેસ્ટોરાં"],
     searchButton: "શોધો",
-    popularItems: "પ્રસિદ્ધ ભોજન વસ્તુઓ",
+    popularItems: "પ્રسિદ્ધ ભોજન વસ્તુઓ",
     noLocationMessage: "કૃપા કરીને રેસ્ટોરન્ટ અને વસ્તુઓ જોવા માટે સ્થાન પસંદ કરો.",
     noStoresFound: "આ શોધ માટે કોઈ રેસ્ટોરન્ટ મળ્યું નથી.",
   },
@@ -51,7 +51,7 @@ export default function FoodMarketPlace() {
   const [storeId, setStoreId] = useState(null);
   const [locations, setLocations] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState("");
-  const [locationSearch, setLocationSearch] = useState("");
+  const [locationSearch, setLocationSearch] = useState("Paldi");
   const [storeSearch, setStoreSearch] = useState("");
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
@@ -92,9 +92,52 @@ export default function FoodMarketPlace() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch locations
+  // Set default location to Paldi on mount
+  useEffect(() => {
+    const fetchDefaultLocation = async () => {
+      setIsLoadingLocations(true);
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) throw new Error("No token found");
+        const response = await axios.post(
+          `${BASE_URL}/user/location/list`,
+          {
+            languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
+            searchKey: "Paldi",
+            limit: 10,
+            offset: 0,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const locationData = response.data.data.rows || [];
+        const paldiLocation = locationData.find(
+          (location) => location.name.toLowerCase() === "paldi"
+        );
+        if (paldiLocation) {
+          setSelectedLocation(paldiLocation.id);
+          setLocationSearch(paldiLocation.name);
+        }
+        setLocations(locationData);
+      } catch (error) {
+        console.error("Error fetching default location:", error.response?.data || error.message);
+      } finally {
+        setIsLoadingLocations(false);
+      }
+    };
+    if (!selectedLocation) {
+      fetchDefaultLocation();
+    }
+  }, []);
+
+  // Fetch locations based on search
   useEffect(() => {
     const fetchLocations = async () => {
+      if (!locationSearch) return; 
       setIsLoadingLocations(true);
       try {
         const token = localStorage.getItem("token");
@@ -227,16 +270,16 @@ export default function FoodMarketPlace() {
     setSelectedLocation(locationId);
     setLocationSearch(locationName);
     setShowLocationDropdown(false);
-    setStoreSearch(""); 
-    setStores([]); 
-    setStoreId(null); 
+    setStoreSearch("");
+    setStores([]);
+    setStoreId(null);
     setPopularItems([]);
   };
 
   const handleStoreSelect = (storeId, storeName) => {
     setStoreSearch(storeName);
     setShowStoreDropdown(false);
-    setStores(stores.filter((store) => store.id === storeId)); 
+    setStores(stores.filter((store) => store.id === storeId));
     setStoreId(storeId);
   };
 
