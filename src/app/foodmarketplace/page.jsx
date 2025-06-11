@@ -27,7 +27,7 @@ const translations = {
     locationPlaceholder: "સ્થાન",
     searchPlaceholder: ["શોધો", "ભોજન વસ્તુઓ", "રેસ્ટોરાં"],
     searchButton: "શોધો",
-    popularItems: "પ્રسિદ્ધ ભોજન વસ્તુઓ",
+    popularItems: "પ્રસિદ્ધ ભોજન વસ્તુઓ",
     noLocationMessage: "કૃપા કરીને રેસ્ટોરન્ટ અને વસ્તુઓ જોવા માટે સ્થાન પસંદ કરો.",
     noStoresFound: "આ શોધ માટે કોઈ રેસ્ટોરન્ટ મળ્યું નથી.",
   },
@@ -62,15 +62,36 @@ export default function FoodMarketPlace() {
   const locationDropdownRef = useRef(null);
   const storeDropdownRef = useRef(null);
 
+  // Load selected language from localStorage
   useEffect(() => {
     const lang = localStorage.getItem("selectedLang") || "English";
     setSelectedLang(lang);
   }, []);
 
+  // Save selected language to localStorage
   useEffect(() => {
     localStorage.setItem("selectedLang", selectedLang);
   }, [selectedLang]);
 
+  // Load selected location from localStorage on mount
+  useEffect(() => {
+    const savedLocationId = localStorage.getItem("selectedLocationId");
+    const savedLocationName = localStorage.getItem("selectedLocationName");
+    if (savedLocationId && savedLocationName) {
+      setSelectedLocation(savedLocationId);
+      setLocationSearch(savedLocationName);
+    }
+  }, []);
+
+  // Save selected location to localStorage
+  useEffect(() => {
+    if (selectedLocation && locationSearch) {
+      localStorage.setItem("selectedLocationId", selectedLocation);
+      localStorage.setItem("selectedLocationName", locationSearch);
+    }
+  }, [selectedLocation, locationSearch]);
+
+  // Placeholder text rotation for search input
   useEffect(() => {
     const interval = setInterval(() => {
       setIndex((prev) => (prev + 1) % translations[selectedLang]?.searchPlaceholder.length);
@@ -92,7 +113,7 @@ export default function FoodMarketPlace() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Set default location to Paldi on mount
+  // Fetch default location (Paldi) only if no location is stored
   useEffect(() => {
     const fetchDefaultLocation = async () => {
       setIsLoadingLocations(true);
@@ -118,9 +139,11 @@ export default function FoodMarketPlace() {
         const paldiLocation = locationData.find(
           (location) => location.name.toLowerCase() === "paldi"
         );
-        if (paldiLocation) {
+        if (paldiLocation && !localStorage.getItem("selectedLocationId")) {
           setSelectedLocation(paldiLocation.id);
           setLocationSearch(paldiLocation.name);
+          localStorage.setItem("selectedLocationId", paldiLocation.id);
+          localStorage.setItem("selectedLocationName", paldiLocation.name);
         }
         setLocations(locationData);
       } catch (error) {
@@ -129,15 +152,15 @@ export default function FoodMarketPlace() {
         setIsLoadingLocations(false);
       }
     };
-    if (!selectedLocation) {
+    if (!selectedLocation && !localStorage.getItem("selectedLocationId")) {
       fetchDefaultLocation();
     }
-  }, []);
+  }, [selectedLocation]);
 
   // Fetch locations based on search
   useEffect(() => {
     const fetchLocations = async () => {
-      if (!locationSearch) return; 
+      if (!locationSearch) return;
       setIsLoadingLocations(true);
       try {
         const token = localStorage.getItem("token");
@@ -158,7 +181,6 @@ export default function FoodMarketPlace() {
           }
         );
         const locationData = response.data.data.rows || [];
-        console.log("location",response.data.data.rows)
         setLocations(locationData);
       } catch (error) {
         console.error("Error fetching locations:", error.response?.data || error.message);
@@ -169,7 +191,7 @@ export default function FoodMarketPlace() {
     fetchLocations();
   }, [locationSearch]);
 
-  // Fetch stores only when a location is selected
+  // Fetch stores when a location is selected
   useEffect(() => {
     const fetchStores = async () => {
       if (!selectedLocation) {
@@ -198,7 +220,6 @@ export default function FoodMarketPlace() {
           }
         );
         const storeData = response.data.data.rows || [];
-        console.log(response.data.data.rows)
         setStores(storeData);
         if (storeData.length > 0) {
           setStoreId(storeData[0].id || "617ad5ce-7981-4e9f-afd1-c629172df441");
@@ -216,7 +237,7 @@ export default function FoodMarketPlace() {
     fetchStores();
   }, [selectedLocation, storeSearch]);
 
-  // Fetch popular items only when a storeId is available
+  // Fetch popular items when a storeId is available
   useEffect(() => {
     const fetchPopularItems = async () => {
       if (!storeId) {
@@ -250,6 +271,7 @@ export default function FoodMarketPlace() {
               (lang) => lang.languageId === "2bfa9d89-61c4-401e-aae3-346627460558"
             )?.name || "Unknown Item",
           image: item.productImages?.[0]?.url || "/chillipaneer.png",
+          storeId: storeId,
         }));
         setPopularItems(mappedItems);
       } catch (error) {
@@ -261,10 +283,6 @@ export default function FoodMarketPlace() {
     };
     fetchPopularItems();
   }, [storeId]);
-
-  useEffect(() => {
-    console.log(stores);
-  }, [stores]);
 
   const t = translations[selectedLang] || translations.English;
 
@@ -292,9 +310,20 @@ export default function FoodMarketPlace() {
     }
   };
 
+  // Helper function to get store and location details for an item
+  const getRestaurantLink = (item) => {
+    const store = stores.find((s) => s.id === item.storeId);
+    if (!store) {
+      // Fallback to a default URL if store is not found
+      return `/foodmarketplace/Tasty-Bites/Paldi/617ad5ce-7981-4e9f-afd1-c629172df441`;
+    }
+    const restaurantName = encodeURIComponent(store.name.replace(/\s+/g, '-'));
+    const locationName = encodeURIComponent((store.location?.name || locationSearch).replace(/\s+/g, '-'));
+    return `/foodmarketplace/${restaurantName}/${locationName}/${store.id}`;
+  };
+
   return (
     <div className="flex justify-center overflow-x-hidden">
-      <BottomNav />
       <div className="max-w-md w-full flex flex-col">
         <Header selectedLang={selectedLang} setSelectedLang={setSelectedLang} />
         {/* MAIN SECTION */}
@@ -403,7 +432,7 @@ export default function FoodMarketPlace() {
               ) : popularItems.length > 0 ? (
                 <div className="flex gap-4 w-max flex-wrap" style={{ rowGap: "2rem" }}>
                   {popularItems.map((item) => (
-                    <Link key={item.id} href={`/foodmarketplace/Tasty%20Bites/Paldi/617ad5ce-7981-4e9f-afd1-c629172df441`}>
+                    <Link key={item.id} href={getRestaurantLink(item)}>
                       <div className="flex flex-col gap-2 items-center">
                         <div className="w-32 h-32 rounded-full relative bg-gray-100 flex items-center justify-center">
                           <Image
@@ -445,7 +474,7 @@ export default function FoodMarketPlace() {
                   itemsServ={item.itemsServ}
                   deliveryTime={""}
                   costForTwo={""}
-                  image={"/chillipaneer.png"}
+                  image={"/placeholder.jpg"}
                   location={item.location?.name}
                   restaurant={item.name}
                 />
@@ -457,6 +486,9 @@ export default function FoodMarketPlace() {
             <p className="text-center text-gray-600 mt-4">{t.noLocationMessage}</p>
           )}
         </section>
+        <footer className="w-full max-w-md fixed bottom-0 left-0 right-0">
+          <BottomNav />
+        </footer>
       </div>
     </div>
   );

@@ -6,13 +6,15 @@ import Link from 'next/link';
 
 export default function Card({ id, name, rating, itemsServ, deliveryTime, costForTwo, image, location, restaurant }) {
   const saveRestaurantUrl = () => {
-    const restaurantUrl = `/foodmarketplace/${encodeURIComponent(restaurant)}/${encodeURIComponent(location || "Unknown")}/${id}`;
+    const restaurantName = encodeURIComponent(restaurant.replace(/\s+/g, '-'));
+    const locationName = encodeURIComponent((location || "Unknown").replace(/\s+/g, '-'));
+    const restaurantUrl = `/foodmarketplace/${restaurantName}/${locationName}/${id}`;
     localStorage.setItem("lastRestaurantUrl", restaurantUrl);
   };
 
   return (
     <Link
-      href={`/foodmarketplace/${encodeURIComponent(restaurant)}/${encodeURIComponent(location || "Unknown")}/${id}`}
+      href={`/foodmarketplace/${encodeURIComponent(restaurant.replace(/\s+/g, '-'))}/${encodeURIComponent((location || "Unknown").replace(/\s+/g, '-'))}/${id}`}
       onClick={saveRestaurantUrl}
     >
       <div className="w-full flex flex-col bg-white border border-gray-200 h-76 mt-4 mb-4 rounded-lg cursor-pointer hover:shadow-lg transition-shadow">
