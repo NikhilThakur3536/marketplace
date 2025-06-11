@@ -426,7 +426,6 @@ export default function Cart() {
         subTotal: subTotal.toFixed(2),
         paymentType: "CASH",
         orderType: orderType,
-        addressId: userAddress.id || "",
       };
 
       if (selectedCoupon) {
