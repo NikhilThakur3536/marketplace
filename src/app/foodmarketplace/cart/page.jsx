@@ -158,7 +158,6 @@ export default function Cart() {
         });
 
         const items = response.data?.data?.rows || [];
-        console.log("Fetched cart items:", items); // Debug
         const normalizedItems = items.map((item) => ({
           ...item,
           quantity: Math.floor(item.quantity || 1),
@@ -223,10 +222,8 @@ export default function Cart() {
 
       const itemTotal = (basePrice + addOnPrice) * Math.floor(item.quantity || 1);
       totalPrice += itemTotal;
-      console.log(`Item ${item.product?.productLanguages?.[0]?.name}: basePrice=₹${basePrice}, addOnPrice=₹${addOnPrice}, quantity=${item.quantity}, itemTotal=₹${itemTotal}`);
     });
 
-    console.log(`Total quantity: ${totalQuantity}, Total price: ₹${totalPrice}`);
 
     setTotalComponents(totalQuantity);
     setOriginalTotalPrice(totalPrice);
@@ -292,7 +289,6 @@ export default function Cart() {
           return;
         }
 
-        console.log("Item product data:", item.product); // Debug
 
         // Optional variant check
         const variant = item.product.variants?.[0];
@@ -304,16 +300,14 @@ export default function Cart() {
           cartId: cartId,
           productId: item.product.id,
           quantity: adjustedQuantity,
-          ...(variant?.id && { variantId: variant.id }), // Include variantId only if available
+          ...(variant?.id && { variantId: variant.id }),
         };
 
-        console.log("Sending payload to /user/cart/edit:", payload); // Debug
 
         const response = await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
 
-        console.log("Cart edit response:", response.data); // Debug
 
         setCartItems((prevItems) => {
           const updatedItems = prevItems.map((item) =>
