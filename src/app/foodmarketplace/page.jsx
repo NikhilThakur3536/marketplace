@@ -51,7 +51,7 @@ export default function FoodMarketPlace() {
   const [storeId, setStoreId] = useState(null);
   const [locations, setLocations] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState("");
-  const [locationSearch, setLocationSearch] = useState("Paldi");
+  const [locationSearch, setLocationSearch] = useState("");
   const [storeSearch, setStoreSearch] = useState("");
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
@@ -158,6 +158,7 @@ export default function FoodMarketPlace() {
           }
         );
         const locationData = response.data.data.rows || [];
+        console.log("location",response.data.data.rows)
         setLocations(locationData);
       } catch (error) {
         console.error("Error fetching locations:", error.response?.data || error.message);
@@ -184,7 +185,7 @@ export default function FoodMarketPlace() {
         const response = await axios.post(
           `${BASE_URL}/user/store/list`,
           {
-            limit: 4,
+            limit: 10,
             offset: 0,
             locationId: selectedLocation,
             searchKey: storeSearch || undefined,
@@ -197,6 +198,7 @@ export default function FoodMarketPlace() {
           }
         );
         const storeData = response.data.data.rows || [];
+        console.log(response.data.data.rows)
         setStores(storeData);
         if (storeData.length > 0) {
           setStoreId(storeData[0].id || "617ad5ce-7981-4e9f-afd1-c629172df441");
