@@ -5,6 +5,7 @@ import { MapPin, ShoppingBag } from "lucide-react";
 import ItemCards from "./components/ItemCards";
 import { useRouter } from "next/navigation";
 import debounce from "lodash/debounce";
+import AddressForm from "./components/AddressForm";
 
 export default function Cart() {
   const router = useRouter();
@@ -22,9 +23,16 @@ export default function Cart() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [showPopup, setShowPopup] = useState(null);
   const [orderType, setOrderType] = useState("PICKUP");
+  const [userAddress, setUserAddress] = useState(null);
+  const [addressLoading, setAddressLoading] = useState(true);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [isEditAddress, setIsEditAddress] = useState(false);
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
-  // Load cart from localStorage on mount
+  const normalizeUrl = (url) => {
+    return url.replace(/\s+/g, "-");
+  };
+
   useEffect(() => {
     const savedCart = typeof window !== "undefined" ? localStorage.getItem("cart") : null;
     if (savedCart) {
@@ -45,7 +53,6 @@ export default function Cart() {
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem(
@@ -60,7 +67,6 @@ export default function Cart() {
     }
   }, [cartItems]);
 
-  // Storage changes
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === "cart") {
@@ -79,7 +85,6 @@ export default function Cart() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // Show popup when cart items change
   useEffect(() => {
     if (cartItems.length > 0 && !loading) {
       setShowPopup({ type: "success", message: "Cart updated!" });
@@ -88,7 +93,6 @@ export default function Cart() {
     }
   }, [cartItems]);
 
-  // Reapply coupon when cart items change
   useEffect(() => {
     if (selectedCoupon && cartItems.length > 0) {
       handleCouponSelect(selectedCoupon);
@@ -102,11 +106,46 @@ export default function Cart() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const url = localStorage.getItem("lastRestaurantUrl") || "/";
-      setRedirectUrl(url);
+      setRedirectUrl(normalizeUrl(url));
     }
   }, []);
 
-  // Fetch cart items from server
+  useEffect(() => {
+    const fetchUserAddress = async () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        setAddressLoading(false);
+        return;
+      }
+      try {
+        const response = await axios.post(
+          `${BASE_URL}/user/customerAddress/list`,
+          {
+            limit: 4,
+            offset: 0,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const addresses = response.data?.data?.rows || [];
+        if (addresses.length > 0) {
+          setUserAddress(addresses.find((addr) => addr.defaultAddress) || addresses[0]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch user address:", error);
+        setShowPopup({ type: "error", message: "Failed to load address." });
+      } finally {
+        setAddressLoading(false);
+      }
+    };
+
+    fetchUserAddress();
+  }, []);
+
   useEffect(() => {
     const fetchCartItems = async () => {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -115,7 +154,7 @@ export default function Cart() {
           localStorage.setItem("redirectUrl", redirectUrl);
         }
         setOrderStatus({ type: "error", message: "Please log in to view your cart." });
-        router.push("/foodmarketplace/login");
+        router.push("/food-marketplace/login");
         setLoading(false);
         return;
       }
@@ -151,7 +190,6 @@ export default function Cart() {
     fetchCartItems();
   }, [redirectUrl]);
 
-  // Fetch coupons
   useEffect(() => {
     const fetchCoupons = async () => {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -280,12 +318,12 @@ export default function Cart() {
           return;
         }
 
-        const variant = item.product.varients?.[0];
+        const variant = item.product.variants?.[0];
         if (!variant || !variant.id) {
-          console.error("Variant ID missing for productId:", item.product.id);
+          console.error("Missing checkout variant ID for product:", item.product.id);
           setOrderStatus({
             type: "error",
-            message: "Product variant information missing. Refreshing cart...",
+            message: "Checkout variant missing. Refreshing cart...",
           });
           await fetchCartItems();
           return;
@@ -315,7 +353,7 @@ export default function Cart() {
         console.error("Error updating item quantity:", error);
         const errorMessage = error.response?.data?.message || error.message;
         console.error("API error details:", error.response?.data);
-        if (errorMessage.includes("d3cc") || errorMessage.includes("insufficient inventory")) {
+        if (errorMessage.includes("error") || errorMessage.includes("inventory")) {
           setOrderStatus({
             type: "error",
             message: `Insufficient inventory for ${
@@ -342,7 +380,7 @@ export default function Cart() {
       return;
     }
 
-    const adjustedQuantity = Math.floor(parsedQuantity);
+    const adjustedQuantity = parsedQuantity;
     if (adjustedQuantity < 0) {
       console.error("Negative quantity provided:", adjustedQuantity);
       setOrderStatus({ type: "error", message: "Quantity cannot be negative." });
@@ -400,7 +438,11 @@ export default function Cart() {
         localStorage.setItem("redirectUrl", redirectUrl);
       }
       setOrderStatus({ type: "error", message: "Please log in to place an order." });
-      router.push("/login");
+      router.push("/food-marketplace/login");
+      return;
+    }
+    if (!userAddress) {
+      setOrderStatus({ type: "error", message: "Please add a delivery address." });
       return;
     }
 
@@ -409,16 +451,17 @@ export default function Cart() {
       setOrderStatus(null);
 
       const payload = {
-        timezone: "Asia/Kolkata",
+        timezone: "America/New_York",
         totalAmount: totalPrice.toFixed(2),
         subTotal: subTotal.toFixed(2),
         paymentType: "CASH",
         orderType: orderType,
+        addressId: userAddress.id || "",
       };
 
       if (selectedCoupon) {
         const couponAmount = (subTotal - totalPrice).toFixed(2);
-        payload.couponCode = selectedCoupon.code;
+        payload.couponCode = selectedCoupon.code || "";
         payload.couponAmount = couponAmount;
       }
 
@@ -426,9 +469,10 @@ export default function Cart() {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
-          "x-timezone": "Asia/Kolkata",
+          "x-js": "application/x-javascript",
         },
       });
+
       setOrderStatus({ type: "success", message: "Order placed successfully!" });
       setCartItems([]);
       setTotalComponents(0);
@@ -454,10 +498,10 @@ export default function Cart() {
   };
 
   const handleCouponSelect = (coupon) => {
-    if (originalTotalPrice < coupon.minPurchaseAmount) {
+    if (originalTotalPrice < (coupon.minPurchaseAmount || 0)) {
       setShowPopup({
         type: "error",
-        message: `Minimum purchase of ₹${coupon.minPurchaseAmount} required for ${coupon.code}`,
+        message: `Minimum purchase of $${coupon.minPurchaseAmount || 0} required for ${coupon.code || ""}`,
       });
       setTimeout(() => setShowPopup(null), 3000);
       return;
@@ -471,7 +515,7 @@ export default function Cart() {
         discount = coupon.maxDiscount;
       }
     } else {
-      discount = coupon.discount;
+      discount = coupon.discount || 0;
       if (coupon.maxDiscount && discount > coupon.maxDiscount) {
         discount = coupon.maxDiscount;
       }
@@ -480,17 +524,34 @@ export default function Cart() {
     setTotalPrice(Math.max(0, originalTotalPrice - discount));
     setShowPopup({
       type: "success",
-      message: `Coupon ${coupon.code} applied! Saved ₹${discount.toFixed(2)}`,
+      message: `Coupon ${coupon.code || ""} applied! Saved $${discount.toFixed(2)}`,
     });
+    setTimeout(() => setShowPopup(null), 3000);
+  };
+
+  const handleAddressSubmit = (address) => {
+    setUserAddress(address);
+    setShowAddressForm(false);
+    setShowPopup({ type: "success", message: isEditAddress ? "Address updated successfully!" : "Address saved successfully!" });
     setTimeout(() => setShowPopup(null), 2000);
   };
 
+  const handleCancel = () => {
+    setShowAddressForm(false);
+    setIsEditAddress(false);
+  };
+
+  const handleChangeAddress = () => {
+    setIsEditAddress(true);
+    setShowAddressForm(true);
+  };
+
   return (
-    <div className="flex justify-center">
-      <div className="max-w-md w-full h-screen bg-white p-2 flex flex-col gap-4">
+    <div className="relative flex justify-center">
+      <div className="max-w-md w-full h-screen bg-white p-4 flex flex-col gap-4">
         {showPopup && (
           <div
-            className={`fixed top-16 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-[120] transition-opacity duration-300 opacity-100 ${
+            className={`fixed top-16 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-[120] transition-opacity duration-300 ${
               showPopup.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
             }`}
           >
@@ -498,32 +559,85 @@ export default function Cart() {
           </div>
         )}
 
-        <div className="w-full rounded-xl px-4 bg-gradient-to-r from-blue-100 to-fuchsia-100">
-          <div className="flex gap-4 p-4">
-            <div className="w-[5%] flex items-center justify-center">
-              <div className="w-fit h-fit rounded-full p-1 bg-blue-200">
-                <MapPin color="blue" size={20} />
-              </div>
-            </div>
-            <div className="flex flex-col w-[80%]">
-              <span className="font-bold text-black text-xl">Delivery Address</span>
-              <p className="text-xs">Koramangala, Bangalore, Karnataka 560034</p>
-            </div>
-            <button className="bg-white border border-gray-200 flex items-center justify-center w-fit h-fit px-6 py-2 transform translate-y-2.5">
-              <span className="text-xs">Change</span>
-            </button>
+        {addressLoading ? (
+          <div className="w-full rounded-xl px-4 bg-gradient-to-r from-blue-100 to-blue-200">
+            <p className="text-center p-4">Loading address...</p>
           </div>
-        </div>
+        ) : userAddress ? (
+          <div className="w-full rounded-xl px-4 bg-gradient-to-r from-blue-100 to-blue-200">
+            <div className="flex gap-4 p-4">
+              <div className="w-[5%] flex items-center">
+                <div className="w-fit h-fit rounded-full p-1 bg-blue-200">
+                  <MapPin color="blue" size={20} />
+                </div>
+              </div>
+              <div className="flex flex-col w-[60%]">
+                <p className="font-bold text-black text-xl">Delivery Address</p>
+                <p className="text-xs">
+                  {[
+                    userAddress?.addressLine1 || "",
+                    userAddress?.addressLine2 || "",
+                    userAddress?.road || "",
+                    userAddress?.landmark || "",
+                    userAddress?.label || "",
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
+              </div>
+              <button
+                onClick={handleChangeAddress}
+                className="bg-blue-600 text-white flex items-center justify-center w-fit h-fit px-4 py-2 transform translate-y-2 rounded-lg"
+              >
+                <span className="text-xs">Change</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full rounded-xl px-4 bg-gradient-to-r from-blue-100 to-blue-200">
+            <div className="p-4 flex justify-center">
+              <button
+                onClick={() => {
+                  setIsEditAddress(false);
+                  setShowAddressForm(true);
+                }}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500"
+              >
+                Enter Your Address for Delivery
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showAddressForm && (
+          <div
+            className="fixed top-0 left-0 w-full h-full bg-black/50 flex items-center justify-center z-[130] overflow-y-auto"
+            onClick={handleCancel}
+          >
+            <div
+              className="max-w-md w-full bg-white rounded-xl m-4 p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AddressForm
+                onAddressSubmit={handleAddressSubmit}
+                onCancel={handleCancel}
+                baseUrl={BASE_URL}
+                userAddress={isEditAddress ? userAddress : null}
+                isEdit={isEditAddress}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="w-full flex flex-col gap-2 flex-1">
-          <div className="bg-gradient-to-r from-orange-500 to-orange-700 w-full flex items-center gap-2 px-2 py-4">
+          <div className="bg-gradient-to-r from-orange-600 to-orange-700 w-full flex items-center gap-2 px-2 py-4">
             <ShoppingBag color="white" size={20} />
-            <span className="text-white text-xl font-semibold">Your Items</span>
+            <p className="text-white font-bold text-xl">Your Items</p>
           </div>
 
-          <div className="w-full flex flex-col gap-4 p-2 bg-white border border-gray-200 flex-1 overflow-y-auto">
+          <div className="w-full flex flex-col gap-4 px-2 bg-white border border-gray-200 flex-1 overflow-y-auto">
             {loading ? (
-              <p className="text-sm text-gray-500 text-center">Loading cart...</p>
+              <p className="text-sm text-gray-500 text-center">Loading...</p>
             ) : cartItems.length === 0 ? (
               <p className="text-sm text-gray-500 text-center">
                 {orderStatus?.type === "success" ? "Cart is empty after order." : "Your cart is empty."}
@@ -534,22 +648,22 @@ export default function Cart() {
                   <p className="text-lg font-semibold text-gray-800">Order Type</p>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setOrderType("PICKUP")}
                       className={`px-4 py-2 rounded-lg border ${
                         orderType === "PICKUP"
                           ? "border-blue-600 bg-blue-100 text-blue-600"
                           : "border-gray-200 hover:bg-gray-100 text-gray-800"
                       }`}
+                      onClick={() => setOrderType("PICKUP")}
                     >
                       Pickup
                     </button>
                     <button
-                      onClick={() => setOrderType("DELIVERY")}
                       className={`px-4 py-2 rounded-lg border ${
                         orderType === "DELIVERY"
                           ? "border-blue-600 bg-blue-100 text-blue-600"
                           : "border-gray-200 hover:bg-gray-100 text-gray-800"
                       }`}
+                      onClick={() => setOrderType("DELIVERY")}
                     >
                       Delivery
                     </button>
@@ -557,13 +671,13 @@ export default function Cart() {
                 </div>
 
                 {cartItems.map((item) => {
-                  const isIncrementDisabled = item.product?.varients?.[0]?.inventory <= item.quantity;
-                  const addOns = item.addons || item.CartAddOns || [];
+                  const addOns = item.addons || [];
                   const addOnPrice = addOns.reduce(
                     (sum, addon) => sum + (addon.priceInfo?.price || addon.product?.priceInfo?.price || 0),
                     0
                   );
                   const itemTotal = ((item.priceInfo?.price || 0) + addOnPrice) * Math.floor(item.quantity || 1);
+                  const isIncrementDisabled = item.product?.variants?.[0]?.inventory <= item.quantity;
 
                   return (
                     <ItemCards
@@ -572,16 +686,16 @@ export default function Cart() {
                       name={item.product?.productLanguages?.[0]?.name || "Unknown Product"}
                       total={itemTotal}
                       restaurantName={item.store?.name || "Unknown Restaurant"}
-                      description={item.product?.productLanguages?.[0]?.shortDescription || "No description"}
-                      customizations={item.customizations}
+                      description={item.product?.productLanguages?.[0]?.description || "No description"}
+                      customizations={item.customizations || ""}
                       count={Math.floor(item.quantity || 1)}
                       addOns={
-                        addOns.length
+                        addOns.length > 0
                           ? addOns
-                              .map((addon) => addon.product?.productLanguages?.[0]?.name)
+                              .map((addon) => addon.product?.productLanguages?.[0]?.name || "")
                               .filter(Boolean)
                               .join(", ")
-                          : "No Add-ons"
+                          : "No add-ons"
                       }
                       onRemove={() => handleRemoveItem(item.id)}
                       onIncrement={() => debouncedUpdateQuantity(item.id, (item.quantity || 1) + 1)}
@@ -591,102 +705,107 @@ export default function Cart() {
                     />
                   );
                 })}
-              </>
-            )}
 
-            {cartItems.length > 0 && (
-              <div className="border-t pt-4 mt-4 bg-gray-50 rounded-xl p-4 shadow-sm">
-                <div className="mb-4">
-                  <p className="text-lg font-semibold text-gray-800 mb-2">Available Coupons</p>
-                  {couponLoading ? (
-                    <p className="text-sm text-gray-500">Loading coupons...</p>
-                  ) : coupons.length === 0 ? (
-                    <p className="text-sm text-gray-500">No coupons available.</p>
-                  ) : (
-                    <div className="flex flex-row overflow-x-auto gap-3 pb-2 snap-x snap-mandatory scroll-smooth no-scrollbar">
-                      {coupons.map((coupon) => (
-                        <button
-                          key={coupon.id}
-                          onClick={() => handleCouponSelect(coupon)}
-                          className={`flex-shrink-0 w-48 p-3 rounded-lg border snap-center ${
-                            selectedCoupon?.id === coupon.id
-                              ? "border-blue-600 bg-blue-100"
-                              : "border-gray-200 hover:bg-gray-100"
-                          }`}
-                        >
-                          <p className="text-sm font-medium text-left">
-                            {coupon.name || coupon.code} -{" "}
-                            {coupon.isPercentage
-                              ? `${coupon.discount}% off (up to ₹${coupon.maxDiscount})`
-                              : `₹${coupon.discount} off`}
-                            {coupon.minPurchaseAmount > 0 && ` (Min. ₹${coupon.minPurchaseAmount})`}
-                          </p>
-                          <p className="text-xs text-gray-500 text-left mt-1">
-                            {coupon.description || "No description"}
-                          </p>
-                        </button>
-                      ))}
+                <button
+                  className="w-full py-3 rounded-lg font-semibold bg-blue-600 text-white mb-4"
+                  onClick={() => router.push(normalizeUrl(redirectUrl))}
+                >
+                  Add More Items
+                </button>
+
+                {cartItems.length > 0 && (
+                  <div className="border-t pt-4 mt-4 bg-gray-50 rounded-lg p-4 shadow-sm">
+                    <div className="mb-4">
+                      <p className="text-lg font-semibold text-gray-800 mb-2">Available Coupons</p>
+                      {couponLoading ? (
+                        <p className="text-sm text-gray-500">Loading coupons...</p>
+                      ) : coupons.length === 0 ? (
+                        <p className="text-sm text-gray-500">No coupons available.</p>
+                      ) : (
+                        <div className="flex flex-row overflow-x-auto gap-3 pb-2 snap-x">
+                          {coupons.map((coupon) => (
+                            <button
+                              key={coupon.id}
+                              onClick={() => handleCouponSelect(coupon)}
+                              className={`flex-shrink-0 w-48 p-3 rounded-lg border ${
+                                selectedCoupon?.id === coupon.id
+                                  ? "border-blue-600 bg-blue-100 text-blue-600"
+                                  : "border-gray-200 hover:bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              <p className="text-sm font-medium text-left">
+                                {coupon.name || coupon.code} -{" "}
+                                {coupon.isPercentage
+                                  ? `${coupon.discount}% off`
+                                  : `$${coupon.discount} off`}
+                                {coupon.minPurchaseAmount && ` (Min $${coupon.minPurchaseAmount})`}
+                              </p>
+                              <p className="text-xs text-gray-500 text-left mt-1">
+                                {coupon.description || "No description"}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="flex justify-between items-center mb-2">
-                  <p className="text-lg font-semibold text-gray-800">Total Items</p>
-                  <p className="text-lg font-bold text-gray-900">{totalComponents}</p>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <p className="text-lg font-semibold text-gray-800">Subtotal</p>
-                  <p className="text-lg font-bold text-gray-900">₹{subTotal.toFixed(2)}</p>
-                </div>
-                {selectedCoupon && (
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm text-gray-600">Coupon Discount</p>
-                    <p className="text-sm text-green-600">₹{(subTotal - totalPrice).toFixed(2)}</p>
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-lg font-semibold text-gray-800">Total Items</p>
+                      <p className="text-lg font-bold">{totalComponents}</p>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-lg font-semibold text-gray-600">Subtotal</p>
+                      <p className="text-lg font-bold">${subTotal.toFixed(2)}</p>
+                    </div>
+                    {selectedCoupon && (
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="text-sm text-gray-600">Coupon Discount</p>
+                        <p className="text-sm text-green-600">${(subTotal - totalPrice).toFixed(2)}</p>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <p className="text-lg font-semibold text-gray-800">Total Price</p>
+                      <p className="text-xl font-bold text-blue-600">${totalPrice.toFixed(2)}</p>
+                    </div>
+                    {selectedCoupon && (
+                      <div className="flex justify-between items-center mt-2">
+                        <p className="text-sm text-gray-600">Coupon Applied</p>
+                        <p className="text-sm text-green-600">{selectedCoupon.name || selectedCoupon.code}</p>
+                      </div>
+                    )}
                   </div>
                 )}
-                <div className="flex justify-between items-center">
-                  <p className="text-lg font-semibold text-gray-800">Total Price (incl. add-ons)</p>
-                  <p className="text-xl font-bold text-blue-600">₹{totalPrice.toFixed(2)}</p>
-                </div>
-                {selectedCoupon && (
-                  <div className="flex justify-between items-center mt-2">
-                    <p className="text-sm text-gray-600">Coupon Applied</p>
-                    <p className="text-sm text-green-600">{selectedCoupon.name || selectedCoupon.code}</p>
-                  </div>
-                )}
-              </div>
-            )}
-            {orderStatus && (
-              <div
-                className={`p-4 rounded-xl text-white text-center ${
-                  orderStatus.type === "success" ? "bg-green-500" : "bg-red-500"
-                }`}
-                role="alert"
-              >
-                {orderStatus.message}
-                {orderStatus.type === "success" && (
-                  <button
-                    className="ml-2 text-sm underline"
-                    onClick={() => router.push("/foodmarketplace/orders")}
+
+                {orderStatus && (
+                  <div
+                    className={`p-4 rounded-xl text-white text-center ${
+                      orderStatus.type === "success" ? "bg-green-500" : "bg-red-500"
+                    }`}
+                    role="alert"
                   >
-                    View Orders
-                  </button>
+                    {orderStatus.message}
+                    {orderStatus.type === "success" && (
+                      <button
+                        className="ml-2 text-sm underline"
+                        onClick={() => router.push("/food-marketplace/orders")}
+                      >
+                        View Orders
+                      </button>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>
-        <button
-          className="w-fit h-fit font-semibold px-4 pt-1 rounded-xl bg-blue-400 flex items-center"
-          onClick={() => router.push(redirectUrl)}
-        >
-          <span className="transform -translate-y-0.5 text-white">Add More Items</span>
-        </button>
+
         <button
           onClick={handlePlaceOrder}
-          disabled={cartItems.length === 0 || orderLoading}
-          className={`w-full py-4 rounded-xl text-white text-lg font-semibold ${
-            cartItems.length === 0 || orderLoading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
+          disabled={cartItems.length === 0 || orderLoading || !userAddress}
+          className={`w-full py-4 rounded-xl text-white font-semibold text-lg ${
+            cartItems.length === 0 || orderLoading || !userAddress
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
           {orderLoading ? (

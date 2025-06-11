@@ -98,7 +98,7 @@ export default function Test() {
             price: item.priceInfo.price || 0,
             originalPrice: null,
             quantity: parseInt(item.quantity, 10) || 1,
-            image: "/placeholder.svg?height=80&width=80",
+            image: "/placeholder.jpg",
             inStock: item.status === "ACTIVE",
           }));
           setCartItems(mappedItems);

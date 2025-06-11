@@ -199,7 +199,7 @@ export default function Restaurants() {
           rating: item.rating || 4.0,
           totalReviews: item.totalReviews || "100+",
           description: item.productLanguages?.[0]?.shortDescription || "No description available",
-          image: item.image || "/pepperoni.jpg",
+          image: item.image || "/placeholder.jpg",
           category: item.category,
           categoryName: item.category?.categoryLanguages?.find(
             (lang) => lang.languageId === "2bfa9d89-61c4-401e-aae3-346627460558"
