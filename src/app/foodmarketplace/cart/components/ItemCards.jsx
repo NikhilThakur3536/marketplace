@@ -1,7 +1,7 @@
 "use client";
 import { Plus, Minus, Trash2 } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function ItemCards({
   id,
@@ -20,6 +20,11 @@ export default function ItemCards({
 }) {
   const [inputValue, setInputValue] = useState(count.toString());
 
+  // Sync inputValue with count prop
+  useEffect(() => {
+    setInputValue(count.toString());
+  }, [count]);
+
   const handleRemove = async () => {
     try {
       await onRemove();
@@ -31,9 +36,9 @@ export default function ItemCards({
   const handleIncrement = async () => {
     try {
       await onIncrement();
-      setInputValue((prev) => (parseInt(prev, 10) + 1).toString());
     } catch (error) {
       console.error("Failed to increment item:", error);
+      setInputValue(count.toString());
     }
   };
 
@@ -41,9 +46,9 @@ export default function ItemCards({
     if (count > 1) {
       try {
         await onDecrement();
-        setInputValue((prev) => (Math.max(1, parseInt(prev, 10) - 1)).toString());
       } catch (error) {
         console.error("Failed to decrement item:", error);
+        setInputValue(count.toString());
       }
     } else {
       await handleRemove();
@@ -71,8 +76,7 @@ export default function ItemCards({
     }
 
     try {
-      const quantityToSend = Number(parsedValue);
-      await onUpdateQuantity(quantityToSend);
+      await onUpdateQuantity(parsedValue);
     } catch (error) {
       console.error("Failed to update quantity:", error);
       setInputValue(count.toString());
@@ -91,10 +95,13 @@ export default function ItemCards({
     }
   };
 
+  // Debug total prop
+  console.log(`Item ${name}: count=${count}, total=₹${total.toFixed(2)}`);
+
   return (
     <div className="flex w-full gap-2">
       <div className="relative w-[25%] h-24 border border-gray-200">
-        <Image src={"/placeholder.jpg"} alt="pizza" fill className="object-cover object-contain" />
+        <Image src="/placeholder.jpg" alt={name} fill className="object-cover object-contain" />
         <div className="absolute z-60 w-fit h-fit p-1 border border-green-700">
           <div className="rounded-full bg-green-700 h-4 w-4" />
         </div>
@@ -104,7 +111,7 @@ export default function ItemCards({
         <span className="text-gray-700">{restaurantName}</span>
         <p className="text-gray-500 text-xs">{description}</p>
         <span className="text-gray-500 text-sm font-medium">{customizations}</span>
-        {addOns !== "No Add-ons" && (
+        {addOns !== "No add-ons" && (
           <div className="flex gap-2 bg-white rounded-lg border border-gray-200 items-center justify-center w-fit h-fit p-1">
             <span className="text-sm">{addOns}</span>
           </div>

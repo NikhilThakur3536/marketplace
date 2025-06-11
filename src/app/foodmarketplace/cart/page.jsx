@@ -120,16 +120,8 @@ export default function Cart() {
       try {
         const response = await axios.post(
           `${BASE_URL}/user/customerAddress/list`,
-          {
-            limit: 4,
-            offset: 0,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
+          { limit: 4, offset: 0 },
+          { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
         );
         const addresses = response.data?.data?.rows || [];
         if (addresses.length > 0) {
@@ -160,18 +152,13 @@ export default function Cart() {
       }
 
       try {
-        const payload = {
-          languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
-        };
-
+        const payload = { languageId: "2bfa9d89-61c4-401e-aae3-346627460558" };
         const response = await axios.post(`${BASE_URL}/user/cart/listv1`, payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
 
         const items = response.data?.data?.rows || [];
+        console.log("Fetched cart items:", items); // Debug
         const normalizedItems = items.map((item) => ({
           ...item,
           quantity: Math.floor(item.quantity || 1),
@@ -197,17 +184,9 @@ export default function Cart() {
 
       setCouponLoading(true);
       try {
-        const payload = {
-          limit: 4000,
-          offset: 0,
-          totalAmount: originalTotalPrice.toString(),
-        };
-
+        const payload = { limit: 4000, offset: 0, totalAmount: originalTotalPrice.toString() };
         const response = await axios.post(`${BASE_URL}/user/coupon/list`, payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
 
         const couponList = response.data?.data?.rows || [];
@@ -244,12 +223,17 @@ export default function Cart() {
 
       const itemTotal = (basePrice + addOnPrice) * Math.floor(item.quantity || 1);
       totalPrice += itemTotal;
+      console.log(`Item ${item.product?.productLanguages?.[0]?.name}: basePrice=₹${basePrice}, addOnPrice=₹${addOnPrice}, quantity=${item.quantity}, itemTotal=₹${itemTotal}`);
     });
+
+    console.log(`Total quantity: ${totalQuantity}, Total price: ₹${totalPrice}`);
 
     setTotalComponents(totalQuantity);
     setOriginalTotalPrice(totalPrice);
     setSubTotal(totalPrice);
-    setTotalPrice(totalPrice);
+    if (!selectedCoupon) {
+      setTotalPrice(totalPrice);
+    }
   };
 
   const handleRemoveItem = async (cartId) => {
@@ -260,16 +244,9 @@ export default function Cart() {
     }
 
     try {
-      await axios.post(
-        `${BASE_URL}/user/cart/remove`,
-        { cartId },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      await axios.post(`${BASE_URL}/user/cart/remove`, { cartId }, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
 
       setCartItems((prevItems) => {
         const updatedItems = prevItems.filter((item) => item.id !== cartId);
@@ -310,42 +287,42 @@ export default function Cart() {
 
         if (!item.product?.id) {
           console.error("Product ID missing for cartId:", cartId);
-          setOrderStatus({
-            type: "error",
-            message: "Product information missing. Refreshing cart...",
-          });
+          setOrderStatus({ type: "error", message: "Product information missing. Refreshing cart..." });
           await fetchCartItems();
           return;
         }
 
+        console.log("Item product data:", item.product); // Debug
+
+        // Optional variant check
         const variant = item.product.variants?.[0];
-        if (!variant || !variant.id) {
-          console.error("Missing checkout variant ID for product:", item.product.id);
-          setOrderStatus({
-            type: "error",
-            message: "Checkout variant missing. Refreshing cart...",
-          });
-          await fetchCartItems();
-          return;
+        if (variant && !variant.id) {
+          console.warn("Variant exists but has no ID for product:", item.product.id);
         }
 
         const payload = {
           cartId: cartId,
           productId: item.product.id,
           quantity: adjustedQuantity,
+          ...(variant?.id && { variantId: variant.id }), // Include variantId only if available
         };
-        await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+
+        console.log("Sending payload to /user/cart/edit:", payload); // Debug
+
+        const response = await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
+
+        console.log("Cart edit response:", response.data); // Debug
 
         setCartItems((prevItems) => {
           const updatedItems = prevItems.map((item) =>
             item.id === cartId ? { ...item, quantity: adjustedQuantity } : item
           );
           calculateTotal(updatedItems);
+          if (selectedCoupon) {
+            handleCouponSelect(selectedCoupon);
+          }
           return updatedItems;
         });
         setShowPopup({ type: "success", message: "Cart quantity updated!" });
@@ -361,15 +338,12 @@ export default function Cart() {
             }. Please try another item.`,
           });
         } else {
-          setOrderStatus({
-            type: "error",
-            message: `Failed to update quantity: ${errorMessage}`,
-          });
+          setOrderStatus({ type: "error", message: `Failed to update quantity: ${errorMessage}` });
         }
         await fetchCartItems();
       }
-    }, 500),
-    [cartItems]
+    }, 300),
+    [cartItems, selectedCoupon]
   );
 
   const handleUpdateQuantity = async (cartId, quantity) => {
@@ -398,16 +372,12 @@ export default function Cart() {
   const fetchCartItems = async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     try {
-      const payload = {
-        languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
-      };
+      const payload = { languageId: "2bfa9d89-61c4-401e-aae3-346627460558" };
       const response = await axios.post(`${BASE_URL}/user/cart/listv1`, payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
       const items = response.data?.data?.rows || [];
+      console.log("Refetched cart items:", items); // Debug
       const normalizedItems = items.map((item) => ({
         ...item,
         quantity: Math.floor(item.quantity || 1),
@@ -501,7 +471,7 @@ export default function Cart() {
     if (originalTotalPrice < (coupon.minPurchaseAmount || 0)) {
       setShowPopup({
         type: "error",
-        message: `Minimum purchase of $${coupon.minPurchaseAmount || 0} required for ${coupon.code || ""}`,
+        message: `Minimum purchase of ₹${coupon.minPurchaseAmount || 0} required for ${coupon.code || ""}`,
       });
       setTimeout(() => setShowPopup(null), 3000);
       return;
@@ -524,7 +494,7 @@ export default function Cart() {
     setTotalPrice(Math.max(0, originalTotalPrice - discount));
     setShowPopup({
       type: "success",
-      message: `Coupon ${coupon.code || ""} applied! Saved $${discount.toFixed(2)}`,
+      message: `Coupon ${coupon.code || ""} applied! Saved ₹${discount.toFixed(2)}`,
     });
     setTimeout(() => setShowPopup(null), 3000);
   };
@@ -532,7 +502,10 @@ export default function Cart() {
   const handleAddressSubmit = (address) => {
     setUserAddress(address);
     setShowAddressForm(false);
-    setShowPopup({ type: "success", message: isEditAddress ? "Address updated successfully!" : "Address saved successfully!" });
+    setShowPopup({
+      type: "success",
+      message: isEditAddress ? "Address updated successfully!" : "Address saved successfully!",
+    });
     setTimeout(() => setShowPopup(null), 2000);
   };
 
@@ -644,7 +617,7 @@ export default function Cart() {
               </p>
             ) : (
               <>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-2">
                   <p className="text-lg font-semibold text-gray-800">Order Type</p>
                   <div className="flex gap-2">
                     <button
@@ -663,7 +636,7 @@ export default function Cart() {
                           ? "border-blue-600 bg-blue-100 text-blue-600"
                           : "border-gray-200 hover:bg-gray-100 text-gray-800"
                       }`}
-                      onClick={() => setOrderType("DELIVERY")}
+                      onClick={() => setOrderType("delivery")}
                     >
                       Delivery
                     </button>
@@ -676,8 +649,8 @@ export default function Cart() {
                     (sum, addon) => sum + (addon.priceInfo?.price || addon.product?.priceInfo?.price || 0),
                     0
                   );
-                  const itemTotal = ((item.priceInfo?.price || 0) + addOnPrice) * Math.floor(item.quantity || 1);
-                  const isIncrementDisabled = item.product?.variants?.[0]?.inventory <= item.quantity;
+                  const itemTotal = ((item.priceInfo?.price || 0) + addOnPrice) * Math.floor(item.quantity || 0);
+                  const isIncrementDisabled = item.product?.variants?.[0]?.quantity <= item.quantity;
 
                   return (
                     <ItemCards
@@ -688,7 +661,7 @@ export default function Cart() {
                       restaurantName={item.store?.name || "Unknown Restaurant"}
                       description={item.product?.productLanguages?.[0]?.description || "No description"}
                       customizations={item.customizations || ""}
-                      count={Math.floor(item.quantity || 1)}
+                      count={Math.floor(item.quantity || 0)}
                       addOns={
                         addOns.length > 0
                           ? addOns
@@ -698,23 +671,21 @@ export default function Cart() {
                           : "No add-ons"
                       }
                       onRemove={() => handleRemoveItem(item.id)}
-                      onIncrement={() => debouncedUpdateQuantity(item.id, (item.quantity || 1) + 1)}
-                      onDecrement={() => debouncedUpdateQuantity(item.id, Math.max(1, (item.quantity || 1) - 1))}
+                      onIncrement={() => debouncedUpdateQuantity(item.id, (item.quantity || 0) + 1)}
+                      onDecrement={() => debouncedUpdateQuantity(item.id, Math.max(1, (item.quantity || 0) - 1))}
                       onUpdateQuantity={(quantity) => handleUpdateQuantity(item.id, quantity)}
                       isIncrementDisabled={isIncrementDisabled}
                     />
                   );
                 })}
-
                 <button
-                  className="w-full py-3 rounded-lg font-semibold bg-blue-600 text-white mb-4"
+                  className="w-full py-3 rounded-lg font-semibold bg-blue-600 text-white mb-2"
                   onClick={() => router.push(normalizeUrl(redirectUrl))}
                 >
-                  Add More Items
+                  Add Items
                 </button>
-
                 {cartItems.length > 0 && (
-                  <div className="border-t pt-4 mt-4 bg-gray-50 rounded-lg p-4 shadow-sm">
+                  <div className="border-t pt-4 mt-2 bg-gray-50 rounded-lg p-4 shadow-sm">
                     <div className="mb-4">
                       <p className="text-lg font-semibold text-gray-800 mb-2">Available Coupons</p>
                       {couponLoading ? (
@@ -727,7 +698,7 @@ export default function Cart() {
                             <button
                               key={coupon.id}
                               onClick={() => handleCouponSelect(coupon)}
-                              className={`flex-shrink-0 w-48 p-3 rounded-lg border ${
+                              className={`flex-shrink-0 w-[150px] p-3 rounded-lg border ${
                                 selectedCoupon?.id === coupon.id
                                   ? "border-blue-600 bg-blue-100 text-blue-600"
                                   : "border-gray-200 hover:bg-gray-100 text-gray-800"
@@ -737,8 +708,8 @@ export default function Cart() {
                                 {coupon.name || coupon.code} -{" "}
                                 {coupon.isPercentage
                                   ? `${coupon.discount}% off`
-                                  : `$${coupon.discount} off`}
-                                {coupon.minPurchaseAmount && ` (Min $${coupon.minPurchaseAmount})`}
+                                  : `₹${coupon.discount} off`}
+                                {coupon.minPurchaseAmount && ` (Min ₹${coupon.minPurchaseAmount})`}
                               </p>
                               <p className="text-xs text-gray-500 text-left mt-1">
                                 {coupon.description || "No description"}
@@ -748,37 +719,41 @@ export default function Cart() {
                         </div>
                       )}
                     </div>
-
                     <div className="flex justify-between items-center mb-2">
                       <p className="text-lg font-semibold text-gray-800">Total Items</p>
-                      <p className="text-lg font-bold">{totalComponents}</p>
+                      <p className="text-lg font-medium">{totalComponents}</p>
                     </div>
                     <div className="flex justify-between items-center mb-2">
                       <p className="text-lg font-semibold text-gray-600">Subtotal</p>
-                      <p className="text-lg font-bold">${subTotal.toFixed(2)}</p>
+                      <p className="text-lg font-medium">₹{subTotal.toFixed(2)}</p>
                     </div>
                     {selectedCoupon && (
                       <div className="flex justify-between items-center mb-2">
                         <p className="text-sm text-gray-600">Coupon Discount</p>
-                        <p className="text-sm text-green-600">${(subTotal - totalPrice).toFixed(2)}</p>
+                        <p className="text-sm text-green-600">
+                          -₹{(subTotal - totalPrice).toFixed(2)}
+                        </p>
                       </div>
                     )}
                     <div className="flex justify-between items-center">
-                      <p className="text-lg font-semibold text-gray-800">Total Price</p>
-                      <p className="text-xl font-bold text-blue-600">${totalPrice.toFixed(2)}</p>
+                      <p className="text-lg font-semibold text-gray-800">Total</p>
+                      <p className="text-xl font-bold text-blue-600">
+                        ₹{totalPrice.toFixed(2)}
+                      </p>
                     </div>
                     {selectedCoupon && (
                       <div className="flex justify-between items-center mt-2">
                         <p className="text-sm text-gray-600">Coupon Applied</p>
-                        <p className="text-sm text-green-600">{selectedCoupon.name || selectedCoupon.code}</p>
+                        <p className="text-sm text-green-600">
+                          {selectedCoupon.name || selectedCoupon.code}
+                        </p>
                       </div>
                     )}
                   </div>
                 )}
-
                 {orderStatus && (
                   <div
-                    className={`p-4 rounded-xl text-white text-center ${
+                    className={`p-2 rounded-lg text-white text-center ${
                       orderStatus.type === "success" ? "bg-green-500" : "bg-red-500"
                     }`}
                     role="alert"
@@ -798,7 +773,6 @@ export default function Cart() {
             )}
           </div>
         </div>
-
         <button
           onClick={handlePlaceOrder}
           disabled={cartItems.length === 0 || orderLoading || !userAddress}
@@ -814,7 +788,7 @@ export default function Cart() {
               Placing Order...
             </span>
           ) : (
-            "Place Order"
+            `Place Order ₹${totalPrice.toFixed(2)}`
           )}
         </button>
       </div>
