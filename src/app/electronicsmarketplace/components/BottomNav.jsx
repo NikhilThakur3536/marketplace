@@ -33,7 +33,9 @@ const BottomNav = () => {
           </button>
 
           <button className="p-2">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              onClick={()=>router.push("/electronicsmarketplace/profile")}
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
