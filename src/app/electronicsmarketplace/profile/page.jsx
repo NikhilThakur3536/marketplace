@@ -1,4 +1,4 @@
-import ProfileCard from "./components/Profilecard";
+import ProfileCard from "./components/ProfileCard";
 
 const Index = () => {
   return (
