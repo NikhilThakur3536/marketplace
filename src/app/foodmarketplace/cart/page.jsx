@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { MapPin, ShoppingBag } from "lucide-react";
@@ -27,6 +28,7 @@ export default function Cart() {
   const [addressLoading, setAddressLoading] = useState(true);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [isEditAddress, setIsEditAddress] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false); // New state for auth prompt
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
   const normalizeUrl = (url) => {
@@ -224,7 +226,6 @@ export default function Cart() {
       totalPrice += itemTotal;
     });
 
-
     setTotalComponents(totalQuantity);
     setOriginalTotalPrice(totalPrice);
     setSubTotal(totalPrice);
@@ -289,8 +290,6 @@ export default function Cart() {
           return;
         }
 
-
-        // Optional variant check
         const variant = item.product.variants?.[0];
         if (variant && !variant.id) {
           console.warn("Variant exists but has no ID for product:", item.product.id);
@@ -303,11 +302,9 @@ export default function Cart() {
           ...(variant?.id && { variantId: variant.id }),
         };
 
-
         const response = await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
-
 
         setCartItems((prevItems) => {
           const updatedItems = prevItems.map((item) =>
@@ -371,7 +368,7 @@ export default function Cart() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
       const items = response.data?.data?.rows || [];
-      console.log("Refetched cart items:", items); // Debug
+      console.log("Refetched cart items:", items);
       const normalizedItems = items.map((item) => ({
         ...item,
         quantity: Math.floor(item.quantity || 1),
@@ -396,13 +393,12 @@ export default function Cart() {
   };
 
   const handlePlaceOrder = async () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = typeof window !== "undefined" ? localStorage.getItem("usertoken") : null;
     if (!token) {
       if (typeof window !== "undefined") {
-        localStorage.setItem("redirectUrl", redirectUrl);
+        localStorage.setItem("redirectUrl", "/foodmarketplace/cart");
       }
-      setOrderStatus({ type: "error", message: "Please log in to place an order." });
-      router.push("/food-marketplace/login");
+      setShowAuthPrompt(true); // Show auth prompt instead of redirecting
       return;
     }
     if (!userAddress) {
@@ -458,6 +454,14 @@ export default function Cart() {
     } finally {
       setOrderLoading(false);
     }
+  };
+
+  const handleAuthChoice = (choice) => {
+    setShowAuthPrompt(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("redirectUrl", "/foodmarketplace/cart");
+    }
+    router.push(`/foodmarketplace/${choice}`);
   };
 
   const handleCouponSelect = (coupon) => {
@@ -522,6 +526,36 @@ export default function Cart() {
             }`}
           >
             {showPopup.message}
+          </div>
+        )}
+
+        {showAuthPrompt && (
+          <div
+            className="fixed top-0 left-0 w-full h-full bg-black/50 flex items-center justify-center z-[130] overflow-y-auto"
+            onClick={() => setShowAuthPrompt(false)}
+          >
+            <div
+              className="max-w-md w-full bg-white rounded-xl m-4 p-6 flex flex-col gap-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-lg font-semibold text-gray-800 text-center">
+                Please log in or register to place your order
+              </p>
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={() => handleAuthChoice("login")}
+                  className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Log In
+                </button>
+                <button
+                  onClick={() => handleAuthChoice("register")}
+                  className="px-6 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                >
+                  Register
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -629,7 +663,7 @@ export default function Cart() {
                           ? "border-blue-600 bg-blue-100 text-blue-600"
                           : "border-gray-200 hover:bg-gray-100 text-gray-800"
                       }`}
-                      onClick={() => setOrderType("delivery")}
+                      onClick={() => setOrderType("DELIVERY")}
                     >
                       Delivery
                     </button>
