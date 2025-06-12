@@ -12,7 +12,7 @@ export default function MarketplaceSelection() {
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
  
   // Domain IDs for each marketplace
-  const FOOD_DOMAIN_ID = process.env.NEXT_PUBLIC_FOOD_DOMAIN_ID;
+  const FOOD_DOMAIN_ID = process.env.NEXT_PUBLIC_DOMAIN_ID;
   const FOOD_DEVICE_ID = process.env.NEXT_PUBLIC_DEVICE_ID;
   const FOOD_DEVICE_TOKEN = process.env.NEXT_PUBLIC_DEVICE_TOKEN;
   const ELECTRONICS_DOMAIN_ID = process.env.NEXT_PUBLIC_ELECDOMAIN_ID;
