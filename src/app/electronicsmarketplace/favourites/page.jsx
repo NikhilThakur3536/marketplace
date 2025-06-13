@@ -6,7 +6,6 @@ import FavoriteItemCard from "./components/FavoriteItemCard";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import Link from "next/link";
-import { URL } from "url";
 
 const Favorites = () => {
   const router = useRouter();
@@ -14,9 +13,6 @@ const Favorites = () => {
   const [loading, setLoading] = useState(true);
   const [showPopup, setShowPopup] = useState(null);
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-  const [redirectingUrl,setRedirectUrl] =  useState("")
-
-  useEffect(()=>{    const redirectingUrl = localStorage.getItem("lastRestaurantUrl");setRedirectUrl(redirectingUrl)},[redirectingUrl])
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -31,7 +27,7 @@ const Favorites = () => {
         });
         setTimeout(() => {
           setShowPopup(null);
-          router.push("/foodmarketplace/login");
+          router.push("/electronicsmarketplace/login");
         }, 2000);
         setLoading(false);
         return;
@@ -49,14 +45,16 @@ const Favorites = () => {
           },
         });
 
+        console.log(response.data.data)
+
         if (response.data.success && response.data.data?.rows) {
           const items = response.data.data.rows.map((item) => ({
             id: item.id || item.productId,
             name: item.productLanguages?.[0]?.name || item.name || "Unknown Product",
-            price: item.priceInfo?.price || item.price || 0,
+            price: item.varients?.[0]?.inventory?.price || 0,
             originalPrice: item.priceInfo?.originalPrice || item.originalPrice || item.price || 0,
             isVeg: item.isVeg ?? true,
-            description: item.productLanguages?.[0]?.description || item.description || "No description",
+            description: item.varients?.[0]?.varientLanguages?.[0]?.name || item.description || "No description",
             image: item.image || "/placeholder.jpg",
             quantity: 1,
           }));
@@ -98,7 +96,7 @@ const Favorites = () => {
       });
       setTimeout(() => {
         setShowPopup(null);
-        router.push("/foodmarketplace/login");
+        router.push("/electronicsmarketplace/login");
       }, 2000);
       return;
     }
@@ -140,22 +138,22 @@ const Favorites = () => {
         {showPopup && (
           <div
             className={`fixed top-16 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-[1000] transition-opacity duration-300 ${
-              showPopup.type === "success" ? "bg-orange-600 text-white" : "bg-red-600 text-white"
+              showPopup.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
             }`}
           >
             {showPopup.message}
           </div>
         )}
         {/* Header */}
-        <div className="bg-orange-600 text-white p-6">
-          <div className="flex items-center gap-4 mb-6" onClick={() => router.push("/foodmarketplace")}>
+        <div className="bg-green-600 text-white p-6">
+          <div className="flex items-center gap-4 mb-6" onClick={() => router.push("/electronicsmarketplace")}>
             <ArrowLeft className="cursor-pointer" size={24} />
             <h1 className="text-2xl font-bold">My Favorites</h1>
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100">Your favorite food items</p>
-              <p className="text-sm text-orange-200">
+              <p className="text-green-100">Your favorite food items</p>
+              <p className="text-sm text-green-200">
                 {favoriteItems.length} items saved • {totalItems} total quantity
               </p>
             </div>
@@ -164,7 +162,7 @@ const Favorites = () => {
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 bg-white">
           {loading ? (
             <div className="text-center py-16">
               <p className="text-gray-600">Loading favorites...</p>
@@ -177,10 +175,10 @@ const Favorites = () => {
                 Start adding items to your favorites to see them here
               </p>
               <Link
-                href={redirectingUrl}
-                className="inline-flex items-center px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                href="/electronicsmarketplace"
+                className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                Browse Food Items
+                Browse More Items
               </Link>
             </div>
           ) : (
@@ -197,8 +195,8 @@ const Favorites = () => {
               </div>
 
               {/* Summary */}
-              <div className="bg-orange-50 rounded-lg p-6 border border-orange-200">
-                <h3 className="text-lg font-semibold mb-4 text-orange-900">Order Summary</h3>
+              <div className="bg-green-50 rounded-lg p-6 border border-green-200">
+                <h3 className="text-lg font-semibold mb-4 text-green-900">Order Summary</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total Items:</span>
@@ -208,14 +206,14 @@ const Favorites = () => {
                     <span className="text-gray-600">Subtotal:</span>
                     <span className="font-medium">₹{totalPrice.toFixed(2)}</span>
                   </div>
-                  <div className="border-t border-orange-200 pt-2 mt-2">
-                    <div className="flex justify-between text-lg font-semibold text-orange-900">
+                  <div className="border-t border-green-200 pt-2 mt-2">
+                    <div className="flex justify-between text-lg font-semibold text-green-900">
                       <span>Total:</span>
                       <span>₹{totalPrice.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
-                <button className="w-full mt-4 bg-orange-600 text-white py-3 rounded-lg hover:bg-orange-700 transition-colors font-medium">
+                <button className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium">
                   Add All to Cart
                 </button>
               </div>

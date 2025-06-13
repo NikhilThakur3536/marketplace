@@ -7,6 +7,7 @@ import ItemCards from "./components/ItemCards";
 import { useRouter } from "next/navigation";
 import debounce from "lodash/debounce";
 import AddressForm from "./components/AddressForm";
+import BottomNav from "../components/BottomNavbar";
 
 export default function Cart() {
   const router = useRouter();
@@ -28,11 +29,156 @@ export default function Cart() {
   const [addressLoading, setAddressLoading] = useState(true);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [isEditAddress, setIsEditAddress] = useState(false);
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false); // New state for auth prompt
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
   const normalizeUrl = (url) => {
     return url.replace(/\s+/g, "-");
+  };
+
+  const fetchProductDetails = async (productId, token) => {
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/user/product/listv2`,
+        { productIds: [productId] },
+        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+      );
+      const product = response.data?.data?.rows?.[0];
+      return {
+        productLanguages: product?.productLanguages,
+        variants: product?.variants,
+        store: product?.store || { name: "Unknown Restaurant" }, 
+      };
+    } catch (error) {
+      console.error(`Failed to fetch product ${productId}:`, error);
+      return null;
+    }
+  };
+
+  const mergeCarts = async (localCart, serverCart, token) => {
+    console.log("Merging carts - Local:", localCart, "Server:", serverCart);
+    const mergedItems = [...serverCart];
+
+    for (const localItem of localCart) {
+      if (!localItem.productId || !localItem.productVarientUomId) {
+        console.warn("Skipping local item:", localItem);
+        continue;
+      }
+      const existingItem = mergedItems.find((item) => item.product?.id === localItem.productId);
+      if (existingItem) {
+        existingItem.quantity = Math.max(existingItem.quantity, localItem.quantity);
+        existingItem.product = {
+          ...existingItem.product,
+          productLanguages: existingItem.product?.productLanguages || [
+            { name: localItem.name || "Unknown Product", description: localItem.description || "No description" },
+          ],
+        };
+        existingItem.store = existingItem.store || localItem.store || { name: "Unknown Restaurant" };
+        existingItem.addons = (existingItem.addons || []).map((addon, index) => ({
+          ...addon,
+          product: {
+            ...addon.product,
+            productLanguages: addon.product?.productLanguages || [
+              { name: localItem.addons[index]?.name || "Unknown Add-on" },
+            ],
+          },
+        }));
+      } else {
+        const payload = {
+          productVarientUomId: localItem.productVarientUomId,
+          productId: localItem.productId,
+          quantity: localItem.quantity,
+          addons: localItem.addons || [],
+        };
+        try {
+          const response = await axios.post(`${BASE_URL}/user/cart/add`, payload, {
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          });
+          const newItem = response.data?.data;
+          if (newItem) {
+            if (!newItem.product?.productLanguages || !newItem.store) {
+              const productDetails = await fetchProductDetails(newItem.product.id, token);
+              if (productDetails) {
+                newItem.product = {
+                  ...newItem.product,
+                  productLanguages: productDetails.productLanguages || [
+                    { name: localItem.name || "Unknown Product", description: localItem.description || "No description" },
+                  ],
+                  variants: productDetails.variants || newItem.product.variants,
+                };
+                newItem.store = productDetails.store || localItem.store || { name: "Unknown Restaurant" };
+              }
+            }
+            newItem.addons = (newItem.addons || []).map((addon, index) => ({
+              ...addon,
+              product: {
+                ...addon.product,
+                productLanguages: addon.product?.productLanguages || [
+                  { name: localItem.addons[index]?.name || "Unknown Add-on" },
+                ],
+              },
+            }));
+            mergedItems.push(newItem);
+          }
+        } catch (error) {
+          console.error("Error adding local item to server cart:", error);
+        }
+      }
+    }
+
+    try {
+      for (const item of mergedItems) {
+        if (!item.product?.id || !item.id || !item.product?.variants?.[0]?.productVarientUoms?.[0]?.id) {
+          console.warn("Skipping item with missing fields:", item);
+          continue;
+        }
+        const payload = {
+          cartId: item.id,
+          productVarientUomId: item.product.variants[0].productVarientUoms[0].id,
+          productId: item.product.id,
+          quantity: item.quantity,
+          addons: (item.addons || []).map((addon) => ({
+            addOnId: addon.id,
+            addOnProductId: addon.productId,
+            addOnVarientId: addon.product?.variants?.[0]?.id || null,
+            productVarientUomId: addon.product?.variants?.[0]?.productVarientUoms?.[0]?.id || null,
+            quantity: addon.quantity || 1,
+          })),
+        };
+        await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        });
+      }
+
+      localStorage.setItem(
+        "cart",
+        JSON.stringify(
+          mergedItems.map((item) => ({
+            id: item.id,
+            productId: item.product?.id,
+            productVarientUomId: item.product?.variants?.[0]?.productVarientUoms?.[0]?.id,
+            quantity: item.quantity,
+            name: item.product?.productLanguages?.[0]?.name,
+            description: item.product?.productLanguages?.[0]?.description,
+            store: item.store || { name: "Unknown Restaurant" },
+            addons: (item.addons || []).map((addon) => ({
+              addOnId: addon.id,
+              addOnProductId: addon.productId,
+              addOnVarientId: addon.product?.variants?.[0]?.id || null,
+              productVarientUomId: addon.product?.variants?.[0]?.productVarientUoms?.[0]?.id || null,
+              quantity: addon.quantity || 1,
+              name: addon.product?.productLanguages?.[0]?.name,
+            })),
+          }))
+        )
+      );
+      console.log("Merged cart:", mergedItems);
+      return mergedItems;
+    } catch (error) {
+      console.error("Error merging carts:", error);
+      setOrderStatus({ type: "error", message: "Failed to sync cart data." });
+      return serverCart;
+    }
   };
 
   useEffect(() => {
@@ -56,13 +202,26 @@ export default function Cart() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && cartItems.length > 0) {
       localStorage.setItem(
         "cart",
         JSON.stringify(
           cartItems.map((item) => ({
             id: item.id,
+            productId: item.productId || item.product?.id,
+            productVarientUomId: item.productVarientUomId || item.product?.variants?.[0]?.productVarientUoms?.[0]?.id,
             quantity: item.quantity,
+            name: item.name || item.product?.productLanguages?.[0]?.name,
+            description: item.description || item.product?.productLanguages?.[0]?.description,
+            store: item.store || { name: "Unknown Restaurant" },
+            addons: (item.addons || []).map((addon) => ({
+              addOnId: addon.addOnId || addon.id,
+              addOnProductId: addon.addOnProductId || addon.productId,
+              addOnVarientId: addon.addOnVarientId || addon.product?.variants?.[0]?.id || null,
+              productVarientUomId: addon.productVarientUomId || addon.product?.variants?.[0]?.productVarientUoms?.[0]?.id || null,
+              quantity: addon.quantity || 1,
+              name: addon.name || addon.product?.productLanguages?.[0]?.name,
+            })),
           }))
         )
       );
@@ -82,7 +241,6 @@ export default function Cart() {
         }
       }
     };
-
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
@@ -126,6 +284,7 @@ export default function Cart() {
           { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
         );
         const addresses = response.data?.data?.rows || [];
+        console.log("Fetched addresses:", addresses);
         if (addresses.length > 0) {
           setUserAddress(addresses.find((addr) => addr.defaultAddress) || addresses[0]);
         }
@@ -136,7 +295,6 @@ export default function Cart() {
         setAddressLoading(false);
       }
     };
-
     fetchUserAddress();
   }, []);
 
@@ -145,36 +303,37 @@ export default function Cart() {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token) {
         if (typeof window !== "undefined") {
-          localStorage.setItem("redirectUrl", redirectUrl);
+          localStorage.setItem("redirectUrl", "/foodmarketplace/cart");
         }
         setOrderStatus({ type: "error", message: "Please log in to view your cart." });
-        router.push("/food-marketplace/login");
+        setShowAuthPrompt(true);
         setLoading(false);
         return;
       }
-
       try {
         const payload = { languageId: "2bfa9d89-61c4-401e-aae3-346627460558" };
         const response = await axios.post(`${BASE_URL}/user/cart/listv1`, payload, {
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
-
-        const items = response.data?.data?.rows || [];
-        const normalizedItems = items.map((item) => ({
+        console.log("Server cart response:", response.data?.data?.rows);
+        const serverItems = response.data?.data?.rows || [];
+        const normalizedServerItems = serverItems.map((item) => ({
           ...item,
           quantity: Math.floor(item.quantity || 1),
         }));
-
-        setCartItems(normalizedItems);
-        calculateTotal(normalizedItems);
+        const localCart = JSON.parse(localStorage.getItem("cart") || "[]");
+        console.log("Local cart before merge:", localCart);
+        const mergedCart = await mergeCarts(localCart, normalizedServerItems, token);
+        console.log("Cart items after merge:", mergedCart);
+        setCartItems(mergedCart);
+        calculateTotal(mergedCart);
       } catch (error) {
-        console.error("Failed to fetch cart items:", error);
+        console.error("Failed to fetch or merge cart items:", error);
         setOrderStatus({ type: "error", message: "Failed to load cart items." });
       } finally {
         setLoading(false);
       }
     };
-
     fetchCartItems();
   }, [redirectUrl]);
 
@@ -182,14 +341,12 @@ export default function Cart() {
     const fetchCoupons = async () => {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token || originalTotalPrice <= 0) return;
-
       setCouponLoading(true);
       try {
         const payload = { limit: 4000, offset: 0, totalAmount: originalTotalPrice.toString() };
         const response = await axios.post(`${BASE_URL}/user/coupon/list`, payload, {
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
-
         const couponList = response.data?.data?.rows || [];
         const eligibleCoupons = couponList.filter(
           (coupon) => coupon.isEligible && originalTotalPrice >= (coupon.minPurchaseAmount || 0)
@@ -202,18 +359,15 @@ export default function Cart() {
         setCouponLoading(false);
       }
     };
-
     fetchCoupons();
   }, [originalTotalPrice]);
 
   const calculateTotal = (items) => {
     let totalQuantity = items.reduce((sum, item) => sum + Math.floor(item.quantity || 1), 0);
     let totalPrice = 0;
-
     items.forEach((item) => {
       const basePrice = item.priceInfo?.price || 0;
       let addOnPrice = 0;
-
       const addOns = item.addons || item.CartAddOns || [];
       if (addOns.length > 0) {
         addOnPrice = addOns.reduce((sum, addon) => {
@@ -221,11 +375,9 @@ export default function Cart() {
           return sum + addonPrice;
         }, 0);
       }
-
       const itemTotal = (basePrice + addOnPrice) * Math.floor(item.quantity || 1);
       totalPrice += itemTotal;
     });
-
     setTotalComponents(totalQuantity);
     setOriginalTotalPrice(totalPrice);
     setSubTotal(totalPrice);
@@ -240,12 +392,12 @@ export default function Cart() {
       setOrderStatus({ type: "error", message: "Please log in to remove items." });
       return;
     }
-
     try {
-      await axios.post(`${BASE_URL}/user/cart/remove`, { cartId }, {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      });
-
+      await axios.post(
+        `${BASE_URL}/user/cart/remove`,
+        { cartId },
+        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+      );
       setCartItems((prevItems) => {
         const updatedItems = prevItems.filter((item) => item.id !== cartId);
         calculateTotal(updatedItems);
@@ -265,14 +417,12 @@ export default function Cart() {
         setOrderStatus({ type: "error", message: "Please log in to update cart." });
         return;
       }
-
       const parsedQuantity = Number(newQuantity);
       if (isNaN(parsedQuantity) || !Number.isInteger(parsedQuantity)) {
         console.error("Invalid quantity in debouncedUpdateQuantity:", newQuantity);
         setOrderStatus({ type: "error", message: "Quantity must be a valid integer." });
         return;
       }
-
       const adjustedQuantity = Math.max(1, Math.floor(parsedQuantity));
       try {
         const item = cartItems.find((item) => item.id === cartId);
@@ -282,30 +432,28 @@ export default function Cart() {
           await fetchCartItems();
           return;
         }
-
-        if (!item.product?.id) {
-          console.error("Product ID missing for cartId:", cartId);
+        if (!item.product?.id || !item.product?.variants?.[0]?.productVarientUoms?.[0]?.id) {
+          console.error("Required fields missing for cartId:", cartId);
           setOrderStatus({ type: "error", message: "Product information missing. Refreshing cart..." });
           await fetchCartItems();
           return;
         }
-
-        const variant = item.product.variants?.[0];
-        if (variant && !variant.id) {
-          console.warn("Variant exists but has no ID for product:", item.product.id);
-        }
-
         const payload = {
           cartId: cartId,
+          productVarientUomId: item.product.variants[0].productVarientUoms[0].id,
           productId: item.product.id,
           quantity: adjustedQuantity,
-          ...(variant?.id && { variantId: variant.id }),
+          addons: (item.addons || []).map((addon) => ({
+            addOnId: addon.id,
+            addOnProductId: addon.productId,
+            addOnVarientId: addon.product?.variants?.[0]?.id || null,
+            productVarientUomId: addon.product?.variants?.[0]?.productVarientUoms?.[0]?.id || null,
+            quantity: addon.quantity || 1,
+          })),
         };
-
-        const response = await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
+        await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
-
         setCartItems((prevItems) => {
           const updatedItems = prevItems.map((item) =>
             item.id === cartId ? { ...item, quantity: adjustedQuantity } : item
@@ -320,7 +468,6 @@ export default function Cart() {
       } catch (error) {
         console.error("Error updating item quantity:", error);
         const errorMessage = error.response?.data?.message || error.message;
-        console.error("API error details:", error.response?.data);
         if (errorMessage.includes("error") || errorMessage.includes("inventory")) {
           setOrderStatus({
             type: "error",
@@ -344,52 +491,17 @@ export default function Cart() {
       setOrderStatus({ type: "error", message: "Quantity must be a valid integer." });
       return;
     }
-
     const adjustedQuantity = parsedQuantity;
     if (adjustedQuantity < 0) {
       console.error("Negative quantity provided:", adjustedQuantity);
       setOrderStatus({ type: "error", message: "Quantity cannot be negative." });
       return;
     }
-
     if (adjustedQuantity === 0) {
       await handleRemoveItem(cartId);
       return;
     }
-
     await debouncedUpdateQuantity(cartId, adjustedQuantity);
-  };
-
-  const fetchCartItems = async () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    try {
-      const payload = { languageId: "2bfa9d89-61c4-401e-aae3-346627460558" };
-      const response = await axios.post(`${BASE_URL}/user/cart/listv1`, payload, {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      });
-      const items = response.data?.data?.rows || [];
-      console.log("Refetched cart items:", items);
-      const normalizedItems = items.map((item) => ({
-        ...item,
-        quantity: Math.floor(item.quantity || 1),
-      }));
-      setCartItems(normalizedItems);
-      calculateTotal(normalizedItems);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          "cart",
-          JSON.stringify(
-            normalizedItems.map((item) => ({
-              id: item.id,
-              quantity: item.quantity,
-            }))
-          )
-        );
-      }
-    } catch (fetchError) {
-      console.error("Failed to refetch cart items:", fetchError);
-      setOrderStatus({ type: "error", message: "Failed to sync cart." });
-    }
   };
 
   const handlePlaceOrder = async () => {
@@ -398,18 +510,16 @@ export default function Cart() {
       if (typeof window !== "undefined") {
         localStorage.setItem("redirectUrl", "/foodmarketplace/cart");
       }
-      setShowAuthPrompt(true); // Show auth prompt instead of redirecting
+      setShowAuthPrompt(true);
       return;
     }
     if (!userAddress) {
       setOrderStatus({ type: "error", message: "Please add a delivery address." });
       return;
     }
-
     try {
       setOrderLoading(true);
       setOrderStatus(null);
-
       const payload = {
         timezone: "America/New_York",
         totalAmount: totalPrice.toFixed(2),
@@ -417,13 +527,11 @@ export default function Cart() {
         paymentType: "CASH",
         orderType: orderType,
       };
-
       if (selectedCoupon) {
         const couponAmount = (subTotal - totalPrice).toFixed(2);
         payload.couponCode = selectedCoupon.code || "";
         payload.couponAmount = couponAmount;
       }
-
       await axios.post(`${BASE_URL}/user/order/addv1`, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -431,7 +539,6 @@ export default function Cart() {
           "x-js": "application/x-javascript",
         },
       });
-
       setOrderStatus({ type: "success", message: "Order placed successfully!" });
       setCartItems([]);
       setTotalComponents(0);
@@ -443,7 +550,6 @@ export default function Cart() {
         localStorage.removeItem("lastRestaurantUrl");
         localStorage.setItem("cart", JSON.stringify([]));
       }
-
       setTimeout(() => setOrderStatus(null), 5000);
     } catch (err) {
       console.error("Error placing order:", err);
@@ -473,7 +579,6 @@ export default function Cart() {
       setTimeout(() => setShowPopup(null), 3000);
       return;
     }
-
     setSelectedCoupon(coupon);
     let discount = 0;
     if (coupon.isPercentage) {
@@ -487,7 +592,6 @@ export default function Cart() {
         discount = coupon.maxDiscount;
       }
     }
-
     setTotalPrice(Math.max(0, originalTotalPrice - discount));
     setShowPopup({
       type: "success",
@@ -518,7 +622,7 @@ export default function Cart() {
 
   return (
     <div className="relative flex justify-center">
-      <div className="max-w-md w-full h-screen bg-white p-4 flex flex-col gap-4">
+      <div className="max-w-md w-full min-h-screen bg-white p-4 flex flex-col gap-4">
         {showPopup && (
           <div
             className={`fixed top-16 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-[120] transition-opacity duration-300 ${
@@ -528,7 +632,6 @@ export default function Cart() {
             {showPopup.message}
           </div>
         )}
-
         {showAuthPrompt && (
           <div
             className="fixed top-0 left-0 w-full h-full bg-black/50 flex items-center justify-center z-[130] overflow-y-auto"
@@ -558,7 +661,20 @@ export default function Cart() {
             </div>
           </div>
         )}
-
+        {!userAddress && !addressLoading && (
+          <div className="w-full rounded-xl px-4 bg-red-100 text-red-600 p-4 mb-4">
+            <p className="text-center">Please add a delivery address to place your order.</p>
+            <button
+              onClick={() => {
+                setIsEditAddress(false);
+                setShowAddressForm(true);
+              }}
+              className="w-full mt-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500"
+            >
+              Add Address
+            </button>
+          </div>
+        )}
         {addressLoading ? (
           <div className="w-full rounded-xl px-4 bg-gradient-to-r from-blue-100 to-blue-200">
             <p className="text-center p-4">Loading address...</p>
@@ -582,7 +698,8 @@ export default function Cart() {
                     userAddress?.label || "",
                   ]
                     .filter(Boolean)
-                    .join(", ")}
+                    .join(", ")
+                  }
                 </p>
               </div>
               <button
@@ -608,7 +725,6 @@ export default function Cart() {
             </div>
           </div>
         )}
-
         {showAddressForm && (
           <div
             className="fixed top-0 left-0 w-full h-full bg-black/50 flex items-center justify-center z-[130] overflow-y-auto"
@@ -628,13 +744,11 @@ export default function Cart() {
             </div>
           </div>
         )}
-
         <div className="w-full flex flex-col gap-2 flex-1">
           <div className="bg-gradient-to-r from-orange-600 to-orange-700 w-full flex items-center gap-2 px-2 py-4">
             <ShoppingBag color="white" size={20} />
             <p className="text-white font-bold text-xl">Your Items</p>
           </div>
-
           <div className="w-full flex flex-col gap-4 px-2 bg-white border border-gray-200 flex-1 overflow-y-auto">
             {loading ? (
               <p className="text-sm text-gray-500 text-center">Loading...</p>
@@ -669,8 +783,8 @@ export default function Cart() {
                     </button>
                   </div>
                 </div>
-
                 {cartItems.map((item) => {
+                  console.log("Item passed to ItemCards:", item);
                   const addOns = item.addons || [];
                   const addOnPrice = addOns.reduce(
                     (sum, addon) => sum + (addon.priceInfo?.price || addon.product?.priceInfo?.price || 0),
@@ -678,21 +792,22 @@ export default function Cart() {
                   );
                   const itemTotal = ((item.priceInfo?.price || 0) + addOnPrice) * Math.floor(item.quantity || 0);
                   const isIncrementDisabled = item.product?.variants?.[0]?.quantity <= item.quantity;
-
                   return (
                     <ItemCards
                       key={item.id}
                       id={item.id}
-                      name={item.product?.productLanguages?.[0]?.name || "Unknown Product"}
+                      name={item.product?.productLanguages?.[0]?.name || item.name || "Unknown Product"}
                       total={itemTotal}
                       restaurantName={item.store?.name || "Unknown Restaurant"}
-                      description={item.product?.productLanguages?.[0]?.description || "No description"}
+                      description={
+                        item.product?.productLanguages?.[0]?.description || item.description || "No description"
+                      }
                       customizations={item.customizations || ""}
                       count={Math.floor(item.quantity || 0)}
                       addOns={
                         addOns.length > 0
                           ? addOns
-                              .map((addon) => addon.product?.productLanguages?.[0]?.name || "")
+                              .map((addon) => addon.product?.productLanguages?.[0]?.name || addon.name || "")
                               .filter(Boolean)
                               .join(", ")
                           : "No add-ons"
@@ -803,7 +918,7 @@ export default function Cart() {
         <button
           onClick={handlePlaceOrder}
           disabled={cartItems.length === 0 || orderLoading || !userAddress}
-          className={`w-full py-4 rounded-xl text-white font-semibold text-lg ${
+          className={`w-full py-4 rounded-xl text-white font-semibold text-lg mb-16 ${
             cartItems.length === 0 || orderLoading || !userAddress
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-700"
@@ -818,6 +933,7 @@ export default function Cart() {
             `Place Order ₹${totalPrice.toFixed(2)}`
           )}
         </button>
+        <BottomNav />
       </div>
     </div>
   );

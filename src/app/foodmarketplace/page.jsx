@@ -457,7 +457,7 @@ export default function FoodMarketPlace() {
         </section>
 
         {/* POPULAR RESTAURANTS SECTION */}
-        <section className="w-full px-2">
+        <section className="w-full px-2 mb-14">
           <h1 className="text-black text-2xl font-bold mt-8">POPULAR RESTAURANTS</h1>
           {selectedLocation ? (
             isLoadingStores ? (
@@ -486,10 +486,9 @@ export default function FoodMarketPlace() {
             <p className="text-center text-gray-600 mt-4">{t.noLocationMessage}</p>
           )}
         </section>
-        <footer className="w-full max-w-md fixed bottom-0 left-0 right-0">
-          <BottomNav />
-        </footer>
       </div>
+      <BottomNav />
+
     </div>
   );
 }
