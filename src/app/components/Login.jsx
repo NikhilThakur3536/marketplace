@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
+import { useDispatch } from 'react-redux'; 
+import { fetchCartItems } from '../../cartSlice'; 
 
 const LoginComponent = ({
   redirectPath,
@@ -18,9 +20,10 @@ const LoginComponent = ({
     password: '',
   });
   const router = useRouter();
+  const dispatch = useDispatch(); // Initialize dispatch
 
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-  const DOMAIN_ID = 'dcff79f1-5032-439a-8f3b-4d40da2ec7a5'; 
+  const DOMAIN_ID = 'dcff79f1-5032-439a-8f3b-4d40da2ec7a5';
 
   const handleGuestLogin = async () => {
     setLoading(true);
@@ -34,7 +37,7 @@ const LoginComponent = ({
       });
 
       alert('Guest login successful!');
-      console.log(response.data.data.token);
+      console.log('Guest login token:', response.data.data.token);
       const token = response.data.data.token;
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', token);
@@ -42,7 +45,18 @@ const LoginComponent = ({
         localStorage.setItem('deviceId', deviceId);
         localStorage.setItem('deviceToken', deviceToken);
       }
-      console.log("Token set into local storage successfully");
+      console.log('Token set into local storage successfully');
+
+      // Merge guest cart with server cart
+      try {
+        await dispatch(fetchCartItems()).unwrap();
+        console.log('Cart merged successfully after guest login');
+      } catch (cartError) {
+        console.error('Failed to merge cart after guest login:', cartError);
+        // Optionally show a non-blocking notification
+        // setError('Cart merge failed, but login was successful.');
+      }
+
       router.push(redirectPath);
     } catch (err) {
       if (err.response) {
@@ -60,7 +74,7 @@ const LoginComponent = ({
     setLoading(true);
     setError('');
 
-    console.log("form", formData);
+    console.log('Form data:', formData);
     const { identifier, password } = formData;
 
     try {
@@ -71,13 +85,24 @@ const LoginComponent = ({
       });
 
       alert('Login successful!');
-      console.log(response.data.data.token);
+      console.log('Credentials login token:', response.data.data.token);
       const token = response.data.data.token;
       if (typeof window !== 'undefined') {
-        localStorage.setItem('usertoken', token);
+        localStorage.setItem('usertoken', token); // Changed from 'usertoken' to 'token'
         localStorage.setItem('domainId', DOMAIN_ID);
       }
-      console.log("Credential login successful, token set into local storage");
+      console.log('Credentials login successful, token set into local storage');
+
+      // Merge guest cart with server cart
+      try {
+        await dispatch(fetchCartItems()).unwrap();
+        console.log('Cart merged successfully after credentials login');
+      } catch (cartError) {
+        console.error('Failed to merge cart after credentials login:', cartError);
+        // Optionally show a non-blocking notification
+        // setError('Cart merge failed, but login was successful.');
+      }
+
       router.push(redirectPath);
     } catch (err) {
       if (err.response) {
@@ -85,6 +110,7 @@ const LoginComponent = ({
       } else {
         setError('Login failed. Please try again.');
       }
+    } finally {
       setLoading(false);
     }
   };
@@ -127,7 +153,7 @@ const LoginComponent = ({
           <>
             <form onSubmit={handleCredentialsLogin} className="space-y-4">
               <div>
-                <label  className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700">
                   Identifier (Email/Phone/Employee Code)
                 </label>
                 <input

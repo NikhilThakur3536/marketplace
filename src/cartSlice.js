@@ -374,12 +374,12 @@ export const updateQuantity = createAsyncThunk(
 
 export const placeOrder = createAsyncThunk(
   'cart/placeOrder',
-  async ({ totalPrice, subTotal, orderType, selectedCoupon }, { dispatch, rejectWithValue }) => {
+  async ({ totalPrice, subTotal, orderType, selectedCoupon, userAddress }, { dispatch, rejectWithValue, getState }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('usertoken');
-    console.log('placeOrder called:', { totalPrice, subTotal, orderType, selectedCoupon, token: !!token });
+    const token = localStorage.getItem('token');
+    console.log('placeOrder called:', { totalPrice, subTotal, orderType, selectedCoupon, userAddress, token: !!token });
     if (!token) {
-      console.log('No token found, rejecting placeOrder');
+      dispatch(setShowAuthPrompt(true));
       return rejectWithValue('Please log in to place order.');
     }
     try {
@@ -390,6 +390,9 @@ export const placeOrder = createAsyncThunk(
         paymentType: 'CASH',
         orderType,
       };
+      if (orderType === 'DELIVERY' && userAddress) {
+        payload.addressId = userAddress.id;
+      }
       if (selectedCoupon) {
         const couponAmount = (subTotal - totalPrice).toFixed(2);
         payload.couponCode = selectedCoupon.code || selectedCoupon.name || '';
@@ -403,8 +406,10 @@ export const placeOrder = createAsyncThunk(
         },
       });
       console.log('placeOrder API response:', response.data);
-      dispatch(setCartItems([])); // Clear cart
+      dispatch(setCartItems([]));
       dispatch(calculateTotal());
+      localStorage.removeItem('cart');
+      localStorage.removeItem('lastRestaurantUrl');
       return { type: 'success', message: 'Order placed successfully!' };
     } catch (error) {
       console.error('Error placing order:', error);
@@ -413,7 +418,6 @@ export const placeOrder = createAsyncThunk(
     }
   }
 );
-
 
 const cartSlice = createSlice({
   name: 'cart',
