@@ -1,22 +1,49 @@
 import React from 'react';
-import { useDispatch } from 'react-redux';
 import { Heart, Plus, Minus } from 'lucide-react';
-import { addToCart } from '../../../../cartSlice';
+import axios from 'axios';
 
 const FavoriteItemCard = ({ item, onUpdateQuantity, onRemoveFromFavorites }) => {
-  const dispatch = useDispatch();
-
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+  console.log("item",item)
+  console.log("varioomid",item?.variantUomId)
   const handleAddToCart = async () => {
-    console.log('Adding to cart:', item);
+    const token = typeof window !== "undefined" ? localStorage.getItem("usertoken") : null;
+    
+    if (!token) {
+      console.error("No token found, please log in.");
+      return;
+    }
+
     try {
-      await dispatch(addToCart({
-        productId: item.productId || 'a656c1dd-7947-4743-b067-0076b5a7d577', // Fallback
-        productVarientUomId: item.productVarientUomId || '50285fd5-284a-4125-83cb-198966f38230', // Fallback
+      const payload = {
+        productId: item.id,
+        productVarientUomId: item.variantUomId||"hyy",
         quantity: item.quantity || 1,
-        addons: [],
-      })).unwrap();
+        addons: item.addons?.map(addon => ({
+          addOnId: addon.id || 'default-addon-id',
+          addOnProductId: addon.productId || 'default-product-id',
+          addOnVarientId: addon.variantId || 'default-variant-id',
+          productVarientUomId: addon.uomId || 'default-uom-id',
+          quantity: addon.quantity || 1
+        })) || []
+      };
+
+      const response = await axios.post(`${BASE_URL}/user/cart/addv1`, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to add item to cart');
+      }
+
+      console.log('Item added to cart:', response.data);
+      // Optionally, trigger a success popup (handled in parent component)
     } catch (error) {
-      console.error('Failed to add to cart:', error);
+      console.error('Error adding to cart:', error);
+      // Optionally, trigger an error popup (handled in parent component)
     }
   };
 

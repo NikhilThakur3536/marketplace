@@ -6,7 +6,6 @@ import FavoriteItemCard from "./components/FavoriteItemCard";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import Link from "next/link";
-import { URL } from "url";
 
 const Favorites = () => {
   const router = useRouter();
@@ -14,15 +13,15 @@ const Favorites = () => {
   const [loading, setLoading] = useState(true);
   const [showPopup, setShowPopup] = useState(null);
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-  const [redirectingUrl,setRedirectUrl] =  useState("")
+  const [redirectingUrl, setRedirectUrl] = useState("");
 
-  useEffect(()=>{    
-    let redirectingUrl = localStorage.getItem("lastRestaurantUrl") 
-    if (redirectingUrl===null || redirectingUrl===""){
-      redirectingUrl="/foodmarketplace"
+  useEffect(() => {
+    let redirectingUrl = localStorage.getItem("lastRestaurantUrl");
+    if (redirectingUrl === null || redirectingUrl === "") {
+      redirectingUrl = "/foodmarketplace";
     }
-    setRedirectUrl(redirectingUrl)
-    },[redirectingUrl])
+    setRedirectUrl(redirectingUrl);
+  }, []);
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -46,7 +45,6 @@ const Favorites = () => {
       try {
         const payload = {
           languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
-        //   searchKey: "",
         };
         const response = await axios.post(`${BASE_URL}/user/favoriteProduct/list`, payload, {
           headers: {
@@ -54,19 +52,22 @@ const Favorites = () => {
             "Content-Type": "application/json",
           },
         });
-
+          console.log("favs",response.data.data)
         if (response.data.success && response.data.data?.rows) {
           const items = response.data.data.rows.map((item) => ({
             id: item.id || item.productId,
             name: item.productLanguages?.[0]?.name || item.name || "Unknown Product",
-            price: item.priceInfo?.price || item.price || 0,
-            originalPrice: item.priceInfo?.originalPrice || item.originalPrice || item.price || 0,
+            price: item.varients?.[0]?.inventory?.price || 0,
+            originalPrice: item.priceInfo?.originalPrice || item.price || 0,
             isVeg: item.isVeg ?? true,
             description: item.productLanguages?.[0]?.description || item.description || "No description",
             image: item.image || "/placeholder.jpg",
             quantity: 1,
+            variantUomId: item.varients?.[0]?.id || "default-uom-id",
+            addons: item.addons || [], 
           }));
           setFavoriteItems(items);
+          console.log("Fav",favoriteItems)
         } else {
           throw new Error("Invalid API response: success=false or missing data.rows");
         }
@@ -132,6 +133,63 @@ const Favorites = () => {
       setShowPopup({
         type: "error",
         message: error.response?.data?.message || "Failed to remove item.",
+      });
+      setTimeout(() => setShowPopup(null), 3000);
+    }
+  };
+
+  const handleAddAllToCart = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setShowPopup({
+        type: "error",
+        message: "Please log in to add items to cart.",
+      });
+      setTimeout(() => {
+        setShowPopup(null);
+        router.push("/foodmarketplace/login");
+      }, 2000);
+      return;
+    }
+
+    try {
+      console.log("fav",favoriteItems)
+      for (const item of  favoriteItems) {
+        const payload = {
+          productId: item.id,
+          productVarientUomId: item.varients?.[0]?.id|| "default-uom-id",
+          quantity: item.quantity || 1,
+          addons: item.addons?.map(addon => ({
+            addOnId: addon.id || "default-addon-id",
+            addOnProductId: addon.productId || "default-product-id",
+            addOnVarientId: addon.variantId || "default-variant-id",
+            productVarientUomId: addon.uomId || "default-uom-id",
+            quantity: addon.quantity || 1,
+          })) || [],
+        };
+
+        const response = await axios.post(`${BASE_URL}/user/cart/addv1`, payload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.data.success) {
+          throw new Error(`Failed to add ${item.name} to cart`);
+        }
+      }
+
+      setShowPopup({
+        type: "success",
+        message: "All items added to cart!",
+      });
+      setTimeout(() => setShowPopup(null), 2000);
+    } catch (error) {
+      console.error("Error adding items to cart:", error);
+      setShowPopup({
+        type: "error",
+        message: error.response?.data?.message || "Failed to add items to cart.",
       });
       setTimeout(() => setShowPopup(null), 3000);
     }
@@ -221,7 +279,10 @@ const Favorites = () => {
                     </div>
                   </div>
                 </div>
-                <button className="w-full mt-4 bg-orange-600 text-white py-3 rounded-lg hover:bg-orange-700 transition-colors font-medium">
+                <button
+                  onClick={handleAddAllToCart}
+                  className="w-full mt-4 bg-orange-600 text-white py-3 rounded-lg hover:bg-orange-700 transition-colors font-medium"
+                >
                   Add All to Cart
                 </button>
               </div>
