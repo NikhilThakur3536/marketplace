@@ -16,7 +16,13 @@ const Favorites = () => {
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
   const [redirectingUrl,setRedirectUrl] =  useState("")
 
-  useEffect(()=>{    const redirectingUrl = localStorage.getItem("lastRestaurantUrl");setRedirectUrl(redirectingUrl)},[redirectingUrl])
+  useEffect(()=>{    
+    let redirectingUrl = localStorage.getItem("lastRestaurantUrl") 
+    if (redirectingUrl===null || redirectingUrl===""){
+      redirectingUrl="/foodmarketplace"
+    }
+    setRedirectUrl(redirectingUrl)
+    },[redirectingUrl])
 
   useEffect(() => {
     const fetchFavorites = async () => {

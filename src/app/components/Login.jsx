@@ -20,7 +20,7 @@ const LoginComponent = ({
     password: '',
   });
   const router = useRouter();
-  const dispatch = useDispatch(); // Initialize dispatch
+  const dispatch = useDispatch(); 
 
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
   const DOMAIN_ID = 'dcff79f1-5032-439a-8f3b-4d40da2ec7a5';
