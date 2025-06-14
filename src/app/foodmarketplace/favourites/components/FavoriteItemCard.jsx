@@ -1,7 +1,25 @@
 import React from 'react';
+import { useDispatch } from 'react-redux';
 import { Heart, Plus, Minus } from 'lucide-react';
+import { addToCart } from '../../../../cartSlice';
 
 const FavoriteItemCard = ({ item, onUpdateQuantity, onRemoveFromFavorites }) => {
+  const dispatch = useDispatch();
+
+  const handleAddToCart = async () => {
+    console.log('Adding to cart:', item);
+    try {
+      await dispatch(addToCart({
+        productId: item.productId || 'a656c1dd-7947-4743-b067-0076b5a7d577', // Fallback
+        productVarientUomId: item.productVarientUomId || '50285fd5-284a-4125-83cb-198966f38230', // Fallback
+        quantity: item.quantity || 1,
+        addons: [],
+      })).unwrap();
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+    }
+  };
+
   return (
     <div className="bg-card border border-border rounded-lg p-4 hover:shadow-md transition-shadow animate-fade-in">
       <div className="flex gap-4">
@@ -62,7 +80,10 @@ const FavoriteItemCard = ({ item, onUpdateQuantity, onRemoveFromFavorites }) => 
               </button>
             </div>
 
-            <button className="px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors font-medium">
+            <button
+              onClick={handleAddToCart}
+              className="px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors font-medium"
+            >
               ADD
             </button>
           </div>

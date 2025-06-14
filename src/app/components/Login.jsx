@@ -74,7 +74,7 @@ const LoginComponent = ({
       console.log(response.data.data.token);
       const token = response.data.data.token;
       if (typeof window !== 'undefined') {
-        localStorage.setItem('token', token);
+        localStorage.setItem('usertoken', token);
         localStorage.setItem('domainId', DOMAIN_ID);
       }
       console.log("Credential login successful, token set into local storage");
