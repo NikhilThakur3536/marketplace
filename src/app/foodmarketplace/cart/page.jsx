@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useCallback } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { MapPin, ShoppingBag, X } from "lucide-react";
-import ItemCards from "./components/ItemCards";
-import { useRouter } from "next/navigation";
-import debounce from "lodash/debounce";
-import AddressForm from "./components/AddressForm";
-import BottomNav from "../components/BottomNavbar";
+import { useEffect, useCallback } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { MapPin, ShoppingBag, X } from 'lucide-react';
+import ItemCards from './components/ItemCards';
+import { useRouter } from 'next/navigation';
+import debounce from 'lodash/debounce';
+import AddressForm from './components/AddressForm';
+import BottomNav from '../components/BottomNavbar';
 import {
   fetchCartItems,
   fetchCoupons,
@@ -26,7 +26,7 @@ import {
   setUserAddress,
   calculateTotal,
   applyCoupon,
-} from "../../../cartSlice";
+} from '../../../cartSlice';
 
 export default function Cart() {
   const router = useRouter();
@@ -53,86 +53,40 @@ export default function Cart() {
     showAuthPrompt,
   } = useSelector((state) => state.cart);
 
-  const normalizeUrl = (url) => {
-    return url.replace(/\s+/g, "-").toLowerCase();
-  };
+  const normalizeUrl = (url) => url.replace(/\s+/g, '-').toLowerCase();
 
-  // Load cart from localStorage
+  // Fetch initial data
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      try {
-        const parsedCart = JSON.parse(savedCart);
-        console.log('Loading cart from localStorage:', parsedCart);
-        if (Array.isArray(parsedCart) && parsedCart.length > 0) {
-          dispatch(setCartItems(parsedCart));
-          dispatch(calculateTotal());
-        } else {
-          console.warn("Invalid or empty cart data in localStorage");
-          dispatch(setCartItems([]));
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        dispatch(fetchCartItems());
+        dispatch(fetchUserAddress());
+        if (originalTotalPrice > 0) {
+          dispatch(fetchCoupons({ totalAmount: originalTotalPrice }));
         }
-      } catch (e) {
-        console.error("Error parsing cart from localStorage:", e);
-        dispatch(setCartItems([]));
+      } else {
+        console.warn('No token found, prompting login');
+        dispatch(setShowAuthPrompt(true));
       }
+      const url = localStorage.getItem('lastRestaurantUrl') || '/';
+      dispatch(setRedirectUrl(normalizeUrl(url)));
     }
-  }, [dispatch]);
+  }, [dispatch, originalTotalPrice]);
 
-  // Save cart to localStorage
+  // Calculate total when cartItems change
   useEffect(() => {
-    if (typeof window === 'undefined' || !cartItems.length) return;
-    console.log('Saving cartItems to localStorage:', cartItems);
-    localStorage.setItem(
-      "cart",
-      JSON.stringify(
-        cartItems.map((item) => ({
-          id: item.id,
-          productId: item.productId || item.product?.id,
-          productVarientUomId: item.productVarientUomId || item.product?.variants?.[0]?.productVarientUoms?.[0]?.id,
-          quantity: item.quantity,
-          name: item.name || item.product?.productLanguages?.[0]?.name || "Unknown Product",
-          description: item.description || item.product?.productLanguages?.[0]?.description || "No description",
-          store: item.store || { id: null, name: "Unknown Restaurant" },
-          addons: (item.addons || []).map((addon) => ({
-            addOnId: addon.addOnId || addon.id,
-            addOnProductId: addon.addOnProductId || addon.productId,
-            addOnVarientId: addon.addOnVarientId || addon.product?.variants?.[0]?.id || null,
-            productVarientUomId: addon.productVarientUomId || addon.product?.variants?.[0]?.productVarientUoms?.[0]?.id || null,
-            quantity: addon.quantity || 1,
-            name: addon.name || addon.product?.productLanguages?.[0]?.name || "Unknown Add-on",
-          })),
-          priceInfo: item.priceInfo || { price: 0 },
-        }))
-      )
-    );
-  }, [cartItems]);
-
-  // Handle storage changes
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === "cart") {
-        try {
-          const newCart = e.newValue ? JSON.parse(e.newValue) : [];
-          console.log('Storage change detected, new cart:', newCart);
-          if (Array.isArray(newCart)) {
-            dispatch(setCartItems(newCart));
-            dispatch(calculateTotal());
-          }
-        } catch (error) {
-          console.error("Error parsing updated cart from storage event:", error);
-        }
-      }
-    };
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, [dispatch]);
+    if (cartItems.length > 0 && !loading) {
+      console.log('Calculating total for cartItems:', cartItems);
+      dispatch(calculateTotal());
+    }
+  }, [cartItems, loading, dispatch]);
 
   // Show cart update popup
   useEffect(() => {
     if (cartItems.length > 0 && !loading) {
       console.log('Cart updated, showing popup');
-      dispatch(setShowPopup({ type: "success", message: "Cart updated!" }));
+      dispatch(setShowPopup({ type: 'success', message: 'Cart updated!' }));
       const timer = setTimeout(() => dispatch(setShowPopup(null)), 2000);
       return () => clearTimeout(timer);
     }
@@ -141,7 +95,7 @@ export default function Cart() {
   // Apply or clear coupon
   useEffect(() => {
     if (selectedCoupon && cartItems.length > 0) {
-      console.log('Applying coupon due to cartItems change:', selectedCoupon);
+      console.log('Applying coupon:', selectedCoupon);
       dispatch(applyCoupon(selectedCoupon));
     } else if (!cartItems.length) {
       console.log('Clearing coupon due to empty cart');
@@ -149,44 +103,14 @@ export default function Cart() {
     }
   }, [cartItems, selectedCoupon, dispatch]);
 
-  // Set redirect URL
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const url = localStorage.getItem("lastRestaurantUrl") || "/";
-    console.log('Setting redirectUrl:', url);
-    dispatch(setRedirectUrl(normalizeUrl(url)));
-  }, [dispatch]);
-
-  // Fetch data
-  useEffect(() => {
-    dispatch(fetchUserAddress());
-    dispatch(fetchCartItems());
-    if (originalTotalPrice > 0) {
-      dispatch(fetchCoupons({ totalAmount: originalTotalPrice }));
-    }
-  }, [dispatch, redirectUrl, originalTotalPrice]);
-
-  // Calculate total
-  useEffect(() => {
-    if (cartItems.length > 0 && !loading) {
-      console.log('Calculating total for cartItems:', cartItems);
-      dispatch(calculateTotal());
-    }
-  }, [cartItems, loading, dispatch]);
-
   // Handle order status changes
   useEffect(() => {
     console.log('Order status changed:', orderStatus);
-    if (orderStatus?.type === "success") {
-      console.log('Order placed successfully, showing popup');
-      dispatch(setShowPopup({ type: "success", message: "Order placed successfully!" }));
+    if (orderStatus?.type === 'success') {
+      dispatch(setShowPopup({ type: 'success', message: 'Order placed successfully!' }));
       setTimeout(() => dispatch(setShowPopup(null)), 5000);
-    } else if (orderStatus?.message === "Please log in to place order.") {
-      console.log('No token detected, showing auth prompt');
-      dispatch(setShowAuthPrompt(true));
-    } else if (orderStatus && !orderStatus.message) {
-      console.warn('Invalid orderStatus format:', orderStatus);
-      dispatch(setShowPopup({ type: "error", message: "An unexpected error occurred." }));
+    } else if (orderStatus?.type === 'error') {
+      dispatch(setShowPopup({ type: 'error', message: orderStatus.message }));
     }
   }, [orderStatus, dispatch]);
 
@@ -195,7 +119,7 @@ export default function Cart() {
     debounce((cartId, newQuantity) => {
       console.log('Updating quantity for cartId:', cartId, 'newQuantity:', newQuantity);
       dispatch(updateQuantity({ cartId, quantity: newQuantity, cartItems }));
-    }, 100),
+    }, 300),
     [dispatch, cartItems]
   );
 
@@ -216,13 +140,11 @@ export default function Cart() {
     const parsedQuantity = Number(quantity);
     console.log('Handling quantity update for cartId:', cartId, 'quantity:', quantity);
     if (isNaN(parsedQuantity) || !Number.isInteger(parsedQuantity)) {
-      console.error("Invalid quantity provided:", quantity);
-      dispatch(setShowPopup({ type: "error", message: "Quantity must be a valid integer." }));
+      dispatch(setShowPopup({ type: 'error', message: 'Quantity must be a valid integer.' }));
       return;
     }
     if (parsedQuantity < 0) {
-      console.error("Negative quantity provided:", parsedQuantity);
-      dispatch(setShowPopup({ type: "error", message: "Quantity cannot be negative." }));
+      dispatch(setShowPopup({ type: 'error', message: 'Quantity cannot be negative.' }));
       return;
     }
     if (parsedQuantity === 0) {
@@ -233,25 +155,22 @@ export default function Cart() {
   };
 
   const handlePlaceOrder = async () => {
-    if (!userAddress && orderType === "DELIVERY") {
-      console.log('No user address, showing popup');
-      dispatch(setShowPopup({ type: "error", message: "Please add a delivery address." }));
+    if (!userAddress && orderType === 'DELIVERY') {
+      dispatch(setShowPopup({ type: 'error', message: 'Please add a delivery address.' }));
       return;
     }
     if (typeof window !== 'undefined' && !localStorage.getItem('token')) {
-      console.log('No token found, showing auth prompt');
       dispatch(setShowAuthPrompt(true));
       return;
     }
     console.log('Placing order with totalPrice:', totalPrice);
-    await dispatch(placeOrder({ totalPrice, subTotal, orderType, selectedCoupon }));
+    await dispatch(placeOrder({ totalPrice, subTotal, orderType, selectedCoupon, userAddress }));
   };
 
   const handleAuthChoice = (choice) => {
-    console.log('Auth choice:', choice);
     dispatch(setShowAuthPrompt(false));
     if (typeof window !== 'undefined') {
-      localStorage.setItem("redirectUrl", "/foodmarketplace/cart");
+      localStorage.setItem('redirectUrl', '/foodmarketplace/cart');
     }
     router.push(`/foodmarketplace/${choice}`);
   };
@@ -262,8 +181,8 @@ export default function Cart() {
     dispatch(setShowAddressForm(false));
     dispatch(
       setShowPopup({
-        type: "success",
-        message: isEditAddress ? "Address updated successfully!" : "Address saved successfully!",
+        type: 'success',
+        message: isEditAddress ? 'Address updated successfully!' : 'Address saved successfully!',
       })
     );
     setTimeout(() => dispatch(setShowPopup(null)), 2000);
@@ -289,7 +208,7 @@ export default function Cart() {
         {showPopup && showPopup.message && (
           <div
             className={`fixed top-16 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-[120] transition-opacity duration-300 ${
-              showPopup.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+              showPopup.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
             }`}
           >
             {showPopup.message}
@@ -318,13 +237,13 @@ export default function Cart() {
               </div>
               <div className="flex gap-4 justify-center">
                 <button
-                  onClick={() => handleAuthChoice("login")}
+                  onClick={() => handleAuthChoice('login')}
                   className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 >
                   Log In
                 </button>
                 <button
-                  onClick={() => handleAuthChoice("register")}
+                  onClick={() => handleAuthChoice('register')}
                   className="px-6 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
                 >
                   Register
@@ -333,7 +252,7 @@ export default function Cart() {
             </div>
           </div>
         )}
-        {!userAddress && !addressLoading && orderType === "DELIVERY" && (
+        {!userAddress && !addressLoading && orderType === 'DELIVERY' && (
           <div className="w-full rounded-xl px-4 bg-red-100 text-red-600 p-4 mb-4">
             <p className="text-center">Please add a delivery address to place your order.</p>
             <button
@@ -363,14 +282,14 @@ export default function Cart() {
                 <p className="font-bold text-black text-xl">Delivery Address</p>
                 <p className="text-xs">
                   {[
-                    userAddress?.addressLine1 || "",
-                    userAddress?.addressLine2 || "",
-                    userAddress?.road || "",
-                    userAddress?.landmark || "",
-                    userAddress?.label || "",
+                    userAddress?.addressLine1 || '',
+                    userAddress?.addressLine2 || '',
+                    userAddress?.road || '',
+                    userAddress?.landmark || '',
+                    userAddress?.label || '',
                   ]
                     .filter(Boolean)
-                    .join(", ")}
+                    .join(', ')}
                 </p>
               </div>
               <button
@@ -425,7 +344,7 @@ export default function Cart() {
               <p className="text-sm text-gray-500 text-center">Loading...</p>
             ) : cartItems.length === 0 ? (
               <p className="text-sm text-gray-500 text-center">
-                {orderStatus?.type === "success" ? "Cart is empty after order." : "Your cart is empty."}
+                {orderStatus?.type === 'success' ? 'Cart is empty after order.' : 'Your cart is empty. Add items to start shopping!'}
               </p>
             ) : (
               <>
@@ -434,28 +353,28 @@ export default function Cart() {
                   <div className="flex gap-2">
                     <button
                       className={`px-4 py-2 rounded-lg border ${
-                        orderType === "PICKUP"
-                          ? "border-blue-600 bg-blue-100 text-blue-600"
-                          : "border-gray-200 hover:bg-gray-100 text-gray-800"
+                        orderType === 'PICKUP'
+                          ? 'border-blue-600 bg-blue-100 text-blue-600'
+                          : 'border-gray-200 hover:bg-gray-100 text-gray-800'
                       }`}
-                      onClick={() => dispatch(setOrderType("PICKUP"))}
+                      onClick={() => dispatch(setOrderType('PICKUP'))}
                     >
                       Pickup
                     </button>
                     <button
                       className={`px-4 py-2 rounded-lg border ${
-                        orderType === "DELIVERY"
-                          ? "border-blue-600 bg-blue-100 text-blue-600"
-                          : "border-gray-200 hover:bg-gray-100 text-gray-800"
+                        orderType === 'DELIVERY'
+                          ? 'border-blue-600 bg-blue-100 text-blue-600'
+                          : 'border-gray-200 hover:bg-gray-100 text-gray-800'
                       }`}
-                      onClick={() => dispatch(setOrderType("DELIVERY"))}
+                      onClick={() => dispatch(setOrderType('DELIVERY'))}
                     >
                       Delivery
                     </button>
                   </div>
                 </div>
                 {cartItems.map((item) => {
-                  console.log("Item passed to ItemCards:", item);
+                  console.log('Item passed to ItemCards:', item);
                   const addOns = item.addons || [];
                   const addOnPrice = addOns.reduce(
                     (sum, addon) => sum + (addon.priceInfo?.price || addon.product?.priceInfo?.price || 0),
@@ -467,21 +386,21 @@ export default function Cart() {
                     <ItemCards
                       key={item.id}
                       id={item.id}
-                      name={item.name || item.product?.productLanguages?.[0]?.name || "Unknown Product"}
+                      name={item.name || item.product?.productLanguages?.[0]?.name || 'Unknown Product'}
                       total={itemTotal}
-                      restaurantName={item.store?.name || "Unknown Restaurant"}
+                      restaurantName={item.store?.name || 'Unknown Restaurant'}
                       description={
-                        item.description || item.product?.productLanguages?.[0]?.description || "No description"
+                        item.description || item.product?.productLanguages?.[0]?.description || 'No description'
                       }
-                      customizations={item.customizations || ""}
+                      customizations={item.customizations || ''}
                       count={Math.floor(item.quantity || 0)}
                       addOns={
                         addOns.length > 0
                           ? addOns
-                              .map((addon) => addon.product?.productLanguages?.[0]?.name || addon.name || "")
+                              .map((addon) => addon.product?.productLanguages?.[0]?.name || addon.name || '')
                               .filter(Boolean)
-                              .join(", ")
-                          : "No add-ons"
+                              .join(', ')
+                          : 'No add-ons'
                       }
                       onRemove={() => handleRemoveItem(item.id)}
                       onIncrement={() => debouncedUpdateQuantity(item.id, (item.quantity || 0) + 1)}
@@ -513,19 +432,19 @@ export default function Cart() {
                               onClick={() => dispatch(applyCoupon(coupon))}
                               className={`flex-shrink-0 w-[150px] p-3 rounded-lg border ${
                                 selectedCoupon?.id === coupon.id
-                                  ? "border-blue-600 bg-blue-100 text-blue-600"
-                                  : "border-gray-200 hover:bg-gray-100 text-gray-800"
+                                  ? 'border-blue-600 bg-blue-100 text-blue-600'
+                                  : 'border-gray-200 hover:bg-gray-100 text-gray-800'
                               }`}
                             >
                               <p className="text-sm font-medium text-left">
-                                {coupon.name || coupon.code} -{" "}
+                                {coupon.name || coupon.code} -{' '}
                                 {coupon.isPercentage
                                   ? `${coupon.discount}% off`
                                   : `₹${coupon.discount} off`}
                                 {coupon.minPurchaseAmount && ` (Min ₹${coupon.minPurchaseAmount})`}
                               </p>
                               <p className="text-xs text-gray-500 text-left mt-1">
-                                {coupon.description || "No description"}
+                                {coupon.description || 'No description'}
                               </p>
                             </button>
                           ))}
@@ -567,15 +486,15 @@ export default function Cart() {
                 {orderStatus && orderStatus.message && (
                   <div
                     className={`p-2 rounded-lg text-white text-center ${
-                      orderStatus.type === "success" ? "bg-green-500" : "bg-red-500"
+                      orderStatus.type === 'success' ? 'bg-green-500' : 'bg-red-500'
                     }`}
                     role="alert"
                   >
                     {orderStatus.message}
-                    {orderStatus.type === "success" && (
+                    {orderStatus.type === 'success' && (
                       <button
                         className="ml-2 text-sm underline"
-                        onClick={() => router.push("/food-marketplace/orders")}
+                        onClick={() => router.push('/food-marketplace/orders')}
                       >
                         View Orders
                       </button>
@@ -591,8 +510,8 @@ export default function Cart() {
           disabled={cartItems.length === 0 || orderLoading}
           className={`w-full py-4 rounded-xl text-white font-semibold text-lg mb-16 ${
             cartItems.length === 0 || orderLoading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700'
           }`}
         >
           {orderLoading ? (

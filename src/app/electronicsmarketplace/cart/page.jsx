@@ -445,7 +445,7 @@ export default function Test() {
         <div className="bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <ArrowLeft className="w-6 h-6 text-gray-600 cursor-pointer" onClick={() => router.push("/")} />
+              <ArrowLeft className="w-6 h-6 text-gray-600 cursor-pointer" onClick={() => router.push("/electronicsmarketplace")} />
               <div>
                 <h1 className="text-xl font-bold text-gray-800">My Cart</h1>
                 <p className="text-sm text-gray-500">{cartItems.length} items</p>

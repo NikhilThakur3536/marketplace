@@ -18,6 +18,10 @@ export default function MarketplaceSelection() {
   const ELECTRONICS_DOMAIN_ID = process.env.NEXT_PUBLIC_ELECDOMAIN_ID;
   const ELECTRONIC_DEVICE_ID = process.env.NEXT_PUBLIC_ELEDEVICE_ID;
   const ELECTRONIC_DEVICE_TOKEN = process.env.NEXT_PUBLIC_ELEDEVICE_TOKEN;
+  const AUTO_DOMAIN_ID = process.env.NEXT_PUBLIC_AUTODOMAIN_ID;  
+  const AUTO_DEVICE_ID = process.env.NEXT_PUBLIC_AUTODEVICE_ID;
+  const AUTO_DEVICE_TOKEN = process.env.NEXT_PUBLIC_AUTODEVICE_TOKEN;
+
 
   // const AUTO_DOMAIN_ID = process.env.NEXT_PUBLIC_AUTO_DOMAIN_ID;
 
@@ -80,7 +84,7 @@ export default function MarketplaceSelection() {
           {isLoading ? 'Loading...' : 'Electronics Marketplace'}
         </button>
         <button
-          onClick={() => handleNavigation('automarketplace',)}
+          onClick={() => handleNavigation('autopartsmarketplace',AUTO_DOMAIN_ID,AUTO_DEVICE_ID,AUTO_DEVICE_TOKEN)}
           className="p-2 bg-yellow-100"
           disabled={isLoading}
         >

@@ -63,11 +63,10 @@ const Favorites = () => {
             description: item.productLanguages?.[0]?.description || item.description || "No description",
             image: item.image || "/placeholder.jpg",
             quantity: 1,
-            variantUomId: item.varients?.[0]?.id || "default-uom-id",
+            variantUomId: item.varients?.[0]?.productVarientUoms?.[0]?.id || "default-uom-id",
             addons: item.addons || [], 
           }));
           setFavoriteItems(items);
-          console.log("Fav",favoriteItems)
         } else {
           throw new Error("Invalid API response: success=false or missing data.rows");
         }
@@ -89,6 +88,7 @@ const Favorites = () => {
   const updateQuantity = (id, newQuantity) => {
     if (newQuantity <= 0) {
       setFavoriteItems(favoriteItems.filter((item) => item.id !== id));
+      console.log(favoriteItems)
     } else {
       setFavoriteItems(favoriteItems.map((item) =>
         item.id === id ? { ...item, quantity: newQuantity } : item

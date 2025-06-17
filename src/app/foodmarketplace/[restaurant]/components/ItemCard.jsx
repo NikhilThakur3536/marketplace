@@ -64,7 +64,7 @@ export default function ItemCard({
     }
 
     try {
-      const payload = { productId };
+      const payload = { productId,productVarientUomId };
       await axios.post(`${BASE_URL}/user/favoriteProduct/add`, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
