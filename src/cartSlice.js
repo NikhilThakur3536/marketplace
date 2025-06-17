@@ -56,166 +56,28 @@ export const fetchProductDetails = createAsyncThunk(
   }
 );
 
+// Commented out mergeCarts and localStorage logic to rely solely on API
+/*
 export const mergeCarts = createAsyncThunk(
   'cart/mergeCarts',
   async ({ localCart, serverCart, token }, { dispatch, rejectWithValue }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
     console.log('Merging carts - Local:', localCart, 'Server:', serverCart);
     const mergedItems = [...serverCart];
-
-    for (const localItem of localCart) {
-      if (!localItem.productId || !localItem.productVarientUomId) {
-        console.warn('Skipping local item due to missing fields:', localItem);
-        continue;
-      }
-      const existingItem = mergedItems.find((item) => item.product?.id === localItem.productId);
-      if (existingItem) {
-        existingItem.quantity = Math.max(existingItem.quantity, localItem.quantity);
-        existingItem.product = {
-          ...existingItem.product,
-          productLanguages: existingItem.product?.productLanguages || [
-            { name: localItem.name || 'Unknown Product', description: localItem.description || 'No description' },
-          ],
-        };
-        existingItem.store = localItem.store || existingItem.store || { id: null, name: 'Unknown Restaurant' };
-        existingItem.addons = (existingItem.addons || []).map((addon, index) => ({
-          ...addon,
-          product: {
-            ...addon.product,
-            productLanguages: addon.product?.productLanguages || [
-              { name: localItem.addons[index]?.name || 'Unknown Add-on' },
-            ],
-          },
-        }));
-        existingItem.name = localItem.name || existingItem.product?.productLanguages?.[0]?.name || 'Unknown Product';
-      } else {
-        const payload = {
-          productVarientUomId: localItem.productVarientUomId,
-          productId: localItem.productId,
-          quantity: localItem.quantity,
-          addons: localItem.addons || [],
-        };
-        try {
-          const response = await axios.post(`${BASE_URL}/user/cart/add`, payload, {
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          });
-          const newItem = response.data?.data;
-          console.log('Server response for cart/add:', response.data);
-          if (!newItem) {
-            console.warn('No new item returned from /user/cart/add for productId:', localItem.productId);
-            continue;
-          }
-          if (!newItem.product || !newItem.product.id) {
-            console.warn('New item missing product or product.id:', newItem);
-            newItem.product = {
-              id: localItem.productId,
-              productLanguages: [
-                { name: localItem.name || 'Unknown Product', description: localItem.description || 'No description' },
-              ],
-              variants: localItem.variants || [],
-            };
-            newItem.store = localItem.store || { id: null, name: 'Unknown Restaurant' };
-          } else if (!newItem.product?.productLanguages || !newItem.store) {
-            const productDetails = await dispatch(fetchProductDetails({ productId: newItem.product.id, token })).unwrap();
-            if (productDetails) {
-              newItem.product = {
-                ...newItem.product,
-                productLanguages: productDetails.productLanguages || [
-                  { name: localItem.name || 'Unknown Product', description: localItem.description || 'No description' },
-                ],
-                variants: productDetails.variants || newItem.product.variants || [],
-              };
-              newItem.store = localItem.store || productDetails.store || { id: null, name: 'Unknown Restaurant' };
-            } else {
-              newItem.product.productLanguages = [
-                { name: localItem.name || 'Unknown Product', description: localItem.description || 'No description' },
-              ];
-              newItem.store = localItem.store || { id: null, name: 'Unknown Restaurant' };
-            }
-          }
-          newItem.addons = (newItem.addons || []).map((addon, index) => ({
-            ...addon,
-            product: {
-              ...addon.product,
-              productLanguages: addon.product?.productLanguages || [
-                { name: localItem.addons[index]?.name || 'Unknown Add-on' },
-              ],
-            },
-          }));
-          newItem.name = localItem.name || newItem.product?.productLanguages?.[0]?.name || 'Unknown Product';
-          mergedItems.push(newItem);
-        } catch (error) {
-          console.error('Error adding local item to server cart:', error);
-        }
-      }
-    }
-
-    try {
-      for (const item of mergedItems) {
-        if (!item.product?.id || !item.id || !item.product?.variants?.[0]?.productVarientUoms?.[0]?.id) {
-          console.warn('Skipping item with missing fields:', item);
-          continue;
-        }
-        const payload = {
-          cartId: item.id,
-          productVarientUomId: item.product.variants[0].productVarientUoms[0].id,
-          productId: item.product.id,
-          quantity: item.quantity,
-          addons: (item.addons || []).map((addon) => ({
-            addOnId: addon.id,
-            addOnProductId: addon.productId,
-            addOnVarientId: addon.product?.variants?.[0]?.id || null,
-            productVarientUomId: addon.product?.variants?.[0]?.productVarientUoms?.[0]?.id || null,
-            quantity: addon.quantity || 1,
-          })),
-        };
-        await axios.post(`${BASE_URL}/user/cart/edit`, payload, {
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        });
-      }
-
-      localStorage.setItem(
-        'cart',
-        JSON.stringify(
-          mergedItems.map((item) => ({
-            id: item.id,
-            productId: item.product?.id,
-            productVarientUomId: item.product?.variants?.[0]?.productVarientUoms?.[0]?.id,
-            quantity: item.quantity,
-            name: item.name || item.product?.productLanguages?.[0]?.name || 'Unknown Product',
-            description: item.description || item.product?.productLanguages?.[0]?.description || 'No description',
-            store: item.store || { id: null, name: 'Unknown Restaurant' },
-            addons: (item.addons || []).map((addon) => ({
-              addOnId: addon.id,
-              addOnProductId: addon.productId,
-              addOnVarientId: addon.product?.variants?.[0]?.id || null,
-              productVarientUomId: addon.product?.variants?.[0]?.productVarientUoms?.[0]?.id || null,
-              quantity: addon.quantity || 1,
-              name: addon.product?.productLanguages?.[0]?.name || addon.name || 'Unknown Add-on',
-            })),
-            priceInfo: item.priceInfo || { price: 0 },
-          }))
-        )
-      );
-      console.log('Merged cart:', mergedItems);
-      return mergedItems;
-    } catch (error) {
-      console.error('Error merging carts:', error);
-      return rejectWithValue(error.response?.data || error.message);
-    }
+    // ... (rest of mergeCarts logic)
   }
 );
+*/
 
 export const fetchCartItems = createAsyncThunk(
   'cart/fetchCartItems',
-  async (_, { dispatch, rejectWithValue, getState }) => {
+  async (_, { dispatch, rejectWithValue }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('token');
-    console.log('Fetching cart items with token:', token);
+    const token = localStorage.getItem('usertoken');
+    console.log('Fetching cart items with token:', !!token);
     if (!token) {
-      console.warn('No token found, preserving local cart');
-      const localCart = JSON.parse(localStorage.getItem('cart') || '[]');
-      return localCart;
+      console.warn('No token found, prompting login');
+      return rejectWithValue('Please log in to view cart.');
     }
     try {
       const payload = { languageId: LANGUAGE_ID };
@@ -229,18 +91,19 @@ export const fetchCartItems = createAsyncThunk(
         quantity: Math.floor(item.quantity || 1),
         name: item.product?.productLanguages?.[0]?.name || item.name || 'Unknown Product',
         priceInfo: item.priceInfo || { price: 0 },
+        store: item.store || { id: null, name: 'Unknown Restaurant' },
+        addons: (item.addons || []).map((addon) => ({
+          ...addon,
+          name: addon.product?.productLanguages?.[0]?.name || addon.name || 'Unknown Add-on',
+          priceInfo: addon.priceInfo || { price: 0 },
+        })),
       }));
-      const localCart = JSON.parse(localStorage.getItem('cart') || '[]');
-      console.log('Local cart before merge:', localCart);
-      const mergedCart = await dispatch(mergeCarts({ localCart, serverCart: normalizedServerItems, token })).unwrap();
-      console.log('Cart items after merge:', mergedCart);
-      dispatch(calculateTotal()); // Ensure total is recalculated after fetch
-      return mergedCart;
+      console.log('Normalized cart items:', normalizedServerItems);
+      dispatch(calculateTotal()); // Recalculate total after fetch
+      return normalizedServerItems;
     } catch (error) {
-      console.error('Failed to fetch or merge cart items:', error);
-      const { cartItems } = getState().cart; // Preserve existing cartItems on error
-      dispatch(calculateTotal()); // Recalculate total to ensure consistency
-      return cartItems; // Return existing items instead of clearing
+      console.error('Failed to fetch cart items:', error);
+      return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
@@ -293,7 +156,7 @@ export const removeItem = createAsyncThunk(
   'cart/removeItem',
   async ({ cartId }, { rejectWithValue, dispatch }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('usertoken');
     if (!token) {
       return rejectWithValue('Please log in to remove items.');
     }
@@ -315,8 +178,6 @@ export const removeItem = createAsyncThunk(
 export const updateQuantity = createAsyncThunk(
   'cart/updateQuantity',
   async ({ cartId, quantity, cartItems }, { dispatch, rejectWithValue, getState }) => {
-            console.log("cart",cartItems)
-
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
     const token = localStorage.getItem('token');
     console.log('updateQuantity thunk called:', { cartId, quantity, token });
@@ -330,7 +191,7 @@ export const updateQuantity = createAsyncThunk(
     }
     const adjustedQuantity = Math.max(1, Math.floor(parsedQuantity));
     try {
-        console.log("cart",cartItems)
+      console.log('Cart items in updateQuantity:', cartItems);
       const item = cartItems.find((item) => item.id === cartId);
       if (!item) {
         console.error('Item not found in cart:', cartId);
@@ -348,7 +209,7 @@ export const updateQuantity = createAsyncThunk(
       dispatch(calculateTotal());
       const payload = {
         cartId,
-        productVarientUomId: item.productVarientUomsId,
+        productVarientUomId: item.productVarientUomId, // Fixed typo: productVarientUomsId -> productVarientUomId
         productId: item.productId,
         quantity: adjustedQuantity,
       };
@@ -376,7 +237,7 @@ export const placeOrder = createAsyncThunk(
   'cart/placeOrder',
   async ({ totalPrice, subTotal, orderType, selectedCoupon, userAddress }, { dispatch, rejectWithValue, getState }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('usertoken');
     console.log('placeOrder called:', { totalPrice, subTotal, orderType, selectedCoupon, userAddress, token: !!token });
     if (!token) {
       dispatch(setShowAuthPrompt(true));
@@ -483,7 +344,6 @@ const cartSlice = createSlice({
       }
       console.log('Calculated totals:', { totalQuantity, totalPrice });
     },
-    // Add custom reducer for optimistic updates
     updateQuantityOptimistic(state, action) {
       const { cartId, quantity } = action.payload;
       state.cartItems = state.cartItems.map((item) =>
@@ -537,7 +397,7 @@ const cartSlice = createSlice({
       .addCase(fetchCartItems.rejected, (state, action) => {
         state.loading = false;
         state.orderStatus = { type: 'error', message: action.payload || 'Failed to load cart items.' };
-        state.showAuthPrompt = true;
+        state.showPopup = { type: 'error', message: action.payload || 'Failed to load cart items.' };
         console.log('fetchCartItems rejected:', action.payload);
       })
       .addCase(fetchCoupons.pending, (state) => {
