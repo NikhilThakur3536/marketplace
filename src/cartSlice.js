@@ -134,7 +134,7 @@ export const fetchUserAddress = createAsyncThunk(
   'cart/fetchUserAddress',
   async (_, { rejectWithValue }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('user  token');
     if (!token) return null;
     try {
       const response = await axios.post(
@@ -179,7 +179,7 @@ export const updateQuantity = createAsyncThunk(
   'cart/updateQuantity',
   async ({ cartId, quantity, cartItems }, { dispatch, rejectWithValue, getState }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('usertoken');
     console.log('updateQuantity thunk called:', { cartId, quantity, token });
     if (!token) {
       return rejectWithValue('Please log in to update cart.');
