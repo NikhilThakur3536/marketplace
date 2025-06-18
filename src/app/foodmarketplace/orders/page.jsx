@@ -17,7 +17,7 @@ export default function Orders() {
 
   useEffect(() => {
     const fetchOrders = async () => {
-      const token = localStorage.getItem("user  token");
+      const token = localStorage.getItem("userToken");
       if (!token) {
         setError("Please log in to view your orders.");
         setLoading(false);
@@ -58,7 +58,7 @@ export default function Orders() {
   }, []);
 
   const fetchOrderDetails = async (orderId) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("userToken");
     if (!token) {
       setDetailsError((prev) => ({ ...prev, [orderId]: "Please log in to view order details." }));
       return;

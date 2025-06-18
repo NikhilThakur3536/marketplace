@@ -73,7 +73,7 @@ export const fetchCartItems = createAsyncThunk(
   'cart/fetchCartItems',
   async (_, { dispatch, rejectWithValue }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('usertoken');
+    const token = localStorage.getItem('userToken');
     console.log('Fetching cart items with token:', !!token);
     if (!token) {
       console.warn('No token found, prompting login');
@@ -112,7 +112,7 @@ export const fetchCoupons = createAsyncThunk(
   'cart/fetchCoupons',
   async ({ totalAmount }, { rejectWithValue }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('userToken');
     if (!token || totalAmount <= 0) return [];
     try {
       const payload = { limit: 4000, offset: 0, totalAmount: totalAmount.toString() };
@@ -134,7 +134,7 @@ export const fetchUserAddress = createAsyncThunk(
   'cart/fetchUserAddress',
   async (_, { rejectWithValue }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('user  token');
+    const token = localStorage.getItem('userToken');
     if (!token) return null;
     try {
       const response = await axios.post(
@@ -156,7 +156,7 @@ export const removeItem = createAsyncThunk(
   'cart/removeItem',
   async ({ cartId }, { rejectWithValue, dispatch }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('usertoken');
+    const token = localStorage.getItem('userToken');
     if (!token) {
       return rejectWithValue('Please log in to remove items.');
     }
@@ -179,7 +179,7 @@ export const updateQuantity = createAsyncThunk(
   'cart/updateQuantity',
   async ({ cartId, quantity, cartItems }, { dispatch, rejectWithValue, getState }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('usertoken');
+    const token = localStorage.getItem('userToken');
     console.log('updateQuantity thunk called:', { cartId, quantity, token });
     if (!token) {
       return rejectWithValue('Please log in to update cart.');
@@ -237,7 +237,7 @@ export const placeOrder = createAsyncThunk(
   'cart/placeOrder',
   async ({ totalPrice, subTotal, orderType, selectedCoupon, userAddress }, { dispatch, rejectWithValue, getState }) => {
     if (typeof window === 'undefined') return rejectWithValue('Server-side execution not supported');
-    const token = localStorage.getItem('usertoken');
+    const token = localStorage.getItem('userToken');
     console.log('placeOrder called:', { totalPrice, subTotal, orderType, selectedCoupon, userAddress, token: !!token });
     if (!token) {
       dispatch(setShowAuthPrompt(true));
@@ -251,9 +251,9 @@ export const placeOrder = createAsyncThunk(
         paymentType: 'CASH',
         orderType,
       };
-      if (orderType === 'DELIVERY' && userAddress) {
-        payload.addressId = userAddress.id;
-      }
+      // if (orderType === 'DELIVERY' && userAddress) {
+      //   payload.addressId = userAddress.id;
+      // }
       if (selectedCoupon) {
         const couponAmount = (subTotal - totalPrice).toFixed(2);
         payload.couponCode = selectedCoupon.code || selectedCoupon.name || '';

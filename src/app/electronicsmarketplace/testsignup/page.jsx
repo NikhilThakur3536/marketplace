@@ -70,8 +70,6 @@ export default function TestLogin () {
                         </div>
                         <hr className="h-[1px] bg-green-400 border-none mt-2"/>
                     </div>
-                    
-
                     <motion.button
                         // type="submit"
                         className="w-[40%] bg-gradient-to-r from-green-400  to-green-500 rounded-2xl py-2 text-white font-semibold text-xl absolute bottom-24"

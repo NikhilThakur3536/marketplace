@@ -7,7 +7,7 @@ const FavoriteItemCard = ({ item, onUpdateQuantity, onRemoveFromFavorites }) => 
   console.log("item",item)
   console.log("varioomid",item?.variantUomId)
   const handleAddToCart = async () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("usertoken") : null;
+    const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
     
     if (!token) {
       console.error("No token found, please log in.");

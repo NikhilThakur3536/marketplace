@@ -390,7 +390,7 @@ export default function Cart() {
                       total={itemTotal}
                       restaurantName={item.store?.name || 'Unknown Restaurant'}
                       description={
-                        item.description || item.product?.productLanguages?.[0]?.description || 'No description'
+                        item.product?.productLanguages?.[0]?.shortDescription || 'No description'
                       }
                       customizations={item.customizations || ''}
                       count={Math.floor(item.quantity || 0)}

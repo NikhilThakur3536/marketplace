@@ -82,7 +82,14 @@ export default function AddressForm({ onAddressSubmit, onCancel, baseUrl, userAd
     }
 
     try {
-      const token = localStorage.getItem("token");
+      let token=""
+      const guesToken = localStorage.getItem("token");
+      const userToken= localStorage.getItem("userToken")
+      if(!userToken){
+        token=guesToken
+      } else{
+        token=userToken
+      }
       if (!token) {
         throw new Error("Please log in to save address.");
       }

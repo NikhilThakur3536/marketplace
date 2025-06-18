@@ -83,9 +83,9 @@ export default function CustomizeModal({ item, isOpen, onClose, addToCart }) {
   const handleAddToCart = async () => {
     setError(null);
     try {
-      const token = localStorage.getItem("usertoken");
+      const token = localStorage.getItem("userToken");
       if (!token) {
-        setShowAuthPopup(true); // Show popup if token is not found
+        setShowAuthPopup(true); 
         return;
       }
       if (!BASE_URL) throw new Error("API base URL is not set.");

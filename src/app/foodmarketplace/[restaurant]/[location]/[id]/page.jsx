@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { MapPin, Star, ChevronDown, Clock, ChevronRight, Search, Filter, X, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -8,10 +8,11 @@ import axios from "axios";
 import ItemCard from "../../components/ItemCard";
 import BottomNav from "../../../components/BottomNavbar";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 export default function Restaurants() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id;
   const [restaurant, setRestaurant] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -25,6 +26,11 @@ export default function Restaurants() {
   const [selectedTab, setSelectedTab] = useState("");
   const [cartItems, setCartItems] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
+  const [isFilterBoxOpen, setIsFilterBoxOpen] = useState(false);
+  const [filterOptions, setFilterOptions] = useState({
+    sortBy: "price_high_to_low",
+    isVeg: true,
+  });
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -49,7 +55,11 @@ export default function Restaurants() {
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cartItems));
+    try {
+      localStorage.setItem("cart", JSON.stringify(cartItems));
+    } catch (e) {
+      console.error("Error saving cart to localStorage:", e);
+    }
   }, [cartItems]);
 
   // Listen for storage changes (e.g., from other tabs)
@@ -88,8 +98,7 @@ export default function Restaurants() {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // Function to add items to cart
-  const addToCart = (itemId) => {
+   const addToCart = (itemId) => {
     if (!itemId) {
       console.error("Invalid itemId provided to addToCart");
       return;
@@ -106,129 +115,180 @@ export default function Restaurants() {
       }
       return newCart;
     });
+  };  
+
+
+  // Handle filter changes
+  const handleFilterChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFilterOptions((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  // Apply filters
+  const applyFilters = () => {
+    setIsFilterBoxOpen(false);
+    fetchRestaurantAndMenu();
+  };
+
+  // Reset filters
+  const resetFilters = () => {
+    setFilterOptions({
+      sortBy: "price_high_to_low",
+      isVeg: true,
+    });
+    setIsFilterBoxOpen(false);
+  };
+
+  // Fetch restaurant and menu
+  const fetchRestaurantAndMenu = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      console.log("Fetching with storeId:", id); // Debug: Log storeId
+      const token = localStorage.getItem("token");
+      console.log("Token:", token ? "Present" : "Missing"); // Debug: Log token presence
+
+      if (!BASE_URL) {
+        throw new Error("BASE_URL is not defined");
+      }
+      if (!token) {
+        throw new Error("Authentication required. Please log in.");
+      }
+      if (!id) {
+        throw new Error("No store ID provided");
+      }
+
+      // Fetch store data
+      const storeResponse = await axios.post(
+        `${BASE_URL}/user/store/list`,
+        { limit: 1, offset: 0},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Store API response:", storeResponse.data); // Debug: Log full response
+      const storeData = storeResponse.data.data?.rows?.[0];
+      if (!storeData) {
+        throw new Error(`No restaurant found for storeId: ${id}`);
+      }
+
+      const restaurantData = {
+        id: storeData.id || id,
+        name: storeData.name || storeData.location?.name || "Unknown Restaurant",
+        rating: storeData.rating || "N/A",
+        totalReviews: storeData.totalReviews || "0",
+        costForTwo: storeData.costForTwo || "₹20",
+        location: storeData.location?.name || "Unknown Location",
+        deliveryTime: storeData.deliveryTime || "30-45 min",
+        itemsServ: storeData.itemsServ || "Various",
+      };
+      setRestaurant(restaurantData);
+
+      // Fetch menu data
+      const menuResponse = await axios.post(
+        `${BASE_URL}/user/product/listv1`,
+        {
+          limit: 40,
+          offset: 0,
+          sortBy: filterOptions.sortBy,
+          isVeg: filterOptions.isVeg,
+          storeId: id,
+          languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
+          ...(debouncedSearchQuery && { searchKey: debouncedSearchQuery }),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Menu API response:", menuResponse.data); // Debug: Log full response
+      const items = menuResponse.data.data?.rows || [];
+
+      const categoryMap = {};
+      items.forEach((item) => {
+        const categoryId = item?.category?.id || "0";
+        const categoryName =
+          item?.category?.categoryLanguages?.find(
+            (lang) => lang?.languageId === "2bfa9d89-61c4-401e-aae3-346627460558"
+          )?.name || "Uncategorized";
+
+        if (categoryId && !categoryMap[categoryId]) {
+          categoryMap[categoryId] = { id: categoryId, name: categoryName };
+        }
+      });
+
+      const uniqueCategories = Object.values(categoryMap);
+      setCategories(uniqueCategories);
+
+      const mappedItems = items.map((item) => ({
+        id: item?.id || item?.productId || `${Date.now()}-${Math.random()}`,
+        productId: item?.productId || item?.id || "default-product-id",
+        isVeg: item?.isVeg ?? true,
+        name: item?.productLanguages?.[0]?.name || "Unnamed Item",
+        price: `${parseFloat(
+          item.varients?.[0]?.productVarientUoms?.[0]?.inventory?.price || 10
+        ).toFixed(2)}`,
+        discountedPrice: `${parseFloat(
+          item.varients?.[0]?.productVarientUoms?.[0]?.inventory?.price || item?.price || 8
+        ).toFixed(2)}`,
+        rating: item?.rating || 4.0,
+        totalReviews: item?.totalReviews || "100+",
+        description: item?.productLanguages?.[0]?.shortDescription || "No description available",
+        image: item?.image || "/placeholder.jpg",
+        category: item?.category || {},
+        categoryName:
+          item?.category?.categoryLanguages?.find(
+            (lang) => lang?.languageId === "2bfa9d89-61c4-401e-aae3-346627460558"
+          )?.name || "Uncategorized",
+        productVarientUomId: item?.varients?.[0]?.productVarientUoms[0]?.id || "",
+        variants: item?.variants || [],
+        addonDetails: item?.addons || [],
+      }));
+
+      setMenuItems(mappedItems);
+      setError(null);
+    } catch (error) {
+      console.error("Error fetching data:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      let errorMessage = "Failed to load restaurant data. Please try again.";
+      if (error.response?.status === 401) {
+        errorMessage = "Authentication failed. Please log in again.";
+        localStorage.removeItem("usertoken");
+        router.push("/login");
+      } else if (error.response?.status === 404) {
+        errorMessage = `Restaurant not found for ID: ${id}`;
+      } else if (error.message.includes("No restaurant found")) {
+        errorMessage = error.message;
+      }
+      setError(errorMessage);
+      setRestaurant(null);
+      setMenuItems([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-    const fetchRestaurantAndMenu = async () => {
-      try {
-        setIsLoading(true);
-        const token = localStorage.getItem("token");
-        if (!BASE_URL) {
-          throw new Error("BASE_URL is not defined");
-        }
-        if (!token) {
-          throw new Error("No token found");
-        }
-        if (!id) {
-          throw new Error("No store ID provided");
-        }
-
-        const storeResponse = await axios.post(
-          `${BASE_URL}/user/store/list`,
-          { limit: 1, offset: 0 },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        const storeData = storeResponse.data.data?.rows?.[0];
-        if (!storeData) {
-          throw new Error("Restaurant not found");
-        }
-        const restaurantData = {
-          id: storeData.id || id,
-          name: storeData.name || storeData.location?.name || "Unknown Restaurant",
-          rating: storeData.rating || "",
-          totalReviews: storeData.totalReviews || "",
-          costForTwo: storeData.costForTwo || "₹20",
-          location: storeData.location?.name || "Unknown Location",
-          deliveryTime: storeData.deliveryTime || "30-45 min",
-          itemsServ: storeData.itemsServ || "Various",
-        };
-        setRestaurant(restaurantData);
-
-        const menuResponse = await axios.post(
-          `${BASE_URL}/user/product/listv1`,
-          {
-            limit: 100,
-            offset: 0,
-            storeId: id,
-            languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
-            ...(debouncedSearchQuery && { searchKey: debouncedSearchQuery }),
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        const items = menuResponse.data.data?.rows || [];
-
-        const categoryMap = {};
-        items.forEach((item) => {
-          const categoryId = item.category?.id;
-          const categoryName =
-            item.category?.categoryLanguages?.find(
-              (lang) => lang.languageId === "2bfa9d89-61c4-401e-aae3-346627460558"
-            )?.name || "Uncategorized";
-
-          if (categoryId && !categoryMap[categoryId]) {
-            categoryMap[categoryId] = { id: categoryId, name: categoryName };
-          }
-        });
-
-        const uniqueCategories = Object.values(categoryMap);
-        setCategories(uniqueCategories);
-
-        const mappedItems = items.map((item) => ({
-          id: item.id || item.productId || `${Date.now()}-${Math.random()}`,
-          productId: item.productId || item.id || "default-product-id",
-          isVeg: item.isVeg ?? true,
-          name: item.productLanguages?.[0]?.name || "Unknown Item",
-          price: `${parseFloat(
-            item.varients?.[0]?.productVarientUoms?.[0]?.inventory?.price || 10
-          ).toFixed(2)}`,
-          discountedPrice: `${parseFloat(
-            item.varients?.[0]?.productVarientUoms?.[0]?.inventory?.price || item.price || 8
-          ).toFixed(2)}`,
-          rating: item.rating || 4.0,
-          totalReviews: item.totalReviews || "100+",
-          description: item.productLanguages?.[0]?.shortDescription || "No description available",
-          image: item.image || "/placeholder.jpg",
-          category: item.category,
-          categoryName: item.category?.categoryLanguages?.find(
-            (lang) => lang.languageId === "2bfa9d89-61c4-401e-aae3-346627460558"
-          )?.name || "Uncategorized",
-          productVarientUomId: item.varients?.[0]?.productVarientUoms?.[0]?.id,
-          variants: item.variants || "",
-          addonDetails: item.addons,
-        }));
-
-        setMenuItems(mappedItems);
-        setError(null);
-      } catch (error) {
-        console.error("Error fetching data:", {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-        });
-        setError("Failed to load restaurant or menu items.");
-        setMenuItems([]);
-        setRestaurant(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (id) {
       fetchRestaurantAndMenu();
+    } else {
+      setError("Invalid store ID");
+      setIsLoading(false);
     }
-  }, [id, debouncedSearchQuery]);
+  }, [id, debouncedSearchQuery, filterOptions]);
 
   const filteredMenuItems = menuItems.filter((item) => {
     const matchesCategory = selectedCategory ? item.category?.id === selectedCategory : true;
@@ -241,28 +301,40 @@ export default function Restaurants() {
 
   const cartItemCount = cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
 
-  if (!id) {
-    return <div className="container mx-auto p-4">Loading...</div>;
+  if (isLoading) {
+    return <div className="container mx-auto p-4">Loading restaurant...</div>;
   }
 
-  if (!restaurant) {
-    return <div className="container mx-auto p-4">Restaurant not found</div>;
+  if (error) {
+    return (
+      <div className="container mx-auto p-4">
+        <p className="text-center text-red-500">{error}</p>
+        <button
+          onClick={fetchRestaurantAndMenu}
+          className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!id) {
+    return <div className="container mx-auto p-4">Invalid store ID</div>;
   }
 
   return (
     <div className="flex justify-center overflow-x-hidden">
       {isFullMenuOpen && (
         <div
-          className="fixed inset-0 bg-white bg-opacity-40 z-[90]"
+          className="fixed inset-0 bg-black bg-opacity-50 z-[90]"
           onClick={() => setIsFullMenuOpen(false)}
         ></div>
       )}
 
       {/* Popup Notification */}
       {showPopup && (
-        <div
-          className="fixed top-16 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[120] transition-opacity duration-300 opacity-100"
-        >
+        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[120] transition-opacity duration-300 opacity-100">
           Item added to cart!
         </div>
       )}
@@ -274,7 +346,7 @@ export default function Restaurants() {
             <span className="text-white text-sm">Home</span>
           </Link>
           <span className="text-white text-sm mx-2">/</span>
-          <span className="text-white text-sm">{restaurant.name}</span>
+          <span className="text-white text-sm">{restaurant?.name || "Loading..."}</span>
           <Link href="/foodmarketplace/cart" className="absolute right-2 flex items-center">
             <div className="relative">
               <ShoppingCart color="white" size={20} className="transform -translate-x-1" />
@@ -287,64 +359,64 @@ export default function Restaurants() {
           </Link>
         </div>
         <div className="bg-gradient-to-b from-white to-gray-200 h-44 rounded-b-xl flex flex-col justify-center p-2">
-          <h1 className="text-black font-bold text-2xl mb-2 mt-1">{restaurant.name}</h1>
-          <div className="border border-gray-200 bg-white rounded-xl w-full h-full p-2 flex flex-col gap-2">
-            <div className="w-full flex justify-between gap-1">
-              <div className="flex gap-1 transform translate-y-1">
-                <div className="w-fit h-fit rounded-full bg-green-700 p-1">
-                  <Star size={10} color="white" fill="white" />
-                </div>
-                <span className="text-xs font-semibold">
-                  {restaurant.rating} ({restaurant.totalReviews} reviews)
-                </span>
-                <div className="flex items-center justify-center bg-gradient-to-r from-green-500 to-green-700/80 rounded-lg h-4 px-2">
-                  <p className="text-[0.5rem] text-white">Top Rated</p>
-                </div>
-              </div>
-              <div className="bg-orange-600 rounded-lg flex justify-center items-center p-1">
-                <p className="text-[0.6rem] text-white font-semibold">{restaurant.costForTwo} for two</p>
-              </div>
-            </div>
-            <div className="bg-gray-100 rounded-lg w-full flex justify-between items-center p-2">
-              <div className="flex items-center justify-center gap-1">
-                <div className="bg-blue-700 w-fit h-fit rounded-full p-1 flex items-center justify-center">
-                  <MapPin size={10} color="white" />
-                </div>
-                <p className="text-[0.5rem] text-black font-semibold">Outlet:</p>
-                <span className="text-[0.5rem] text-black font-medium">{restaurant.location}</span>
-                <ChevronDown size={10} color="black" />
-              </div>
-              <div className="flex gap-1 items-center">
-                <Clock size={10} color="black" />
-                <span className="text-black text-[0.5rem] font-medium">{restaurant.deliveryTime}</span>
-              </div>
-            </div>
-            <div className="w-full flex justify-between">
-              <div className="flex gap-2 flex-wrap">
-                {restaurant.itemsServ?.split(",")?.map((cuisine, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-center items-center whitespace-nowrap bg-gray-200 border border-black/30 p-1 rounded-lg text-[0.7rem] font-semibold"
-                  >
-                    <p>{cuisine.trim()}</p>
+          <h1 className="text-black font-bold text-2xl mb-2 mt-1">{restaurant?.name || "Loading..."}</h1>
+          {restaurant && (
+            <div className="border border-gray-200 bg-white rounded-xl w-full h-full p-2 flex flex-col gap-2">
+              <div className="w-full flex justify-between gap-1">
+                <div className="flex gap-1 transform translate-y-1">
+                  <div className="w-fit h-fit rounded-full bg-green-700 p-1">
+                    <Star size={10} color="white" fill="white" />
                   </div>
-                ))}
+                  <span className="text-xs font-semibold">
+                    {restaurant.rating} ({restaurant.totalReviews} reviews)
+                  </span>
+                  <div className="flex items-center justify-center bg-gradient-to-r from-green-500 to-green-700/80 rounded-lg h-4 px-2">
+                    <p className="text-[0.5rem] text-white">Top Rated</p>
+                  </div>
+                </div>
+                <div className="bg-orange-600 rounded-lg flex justify-center items-center p-1">
+                  <p className="text-[0.6rem] text-white font-semibold">{restaurant.costForTwo} for two</p>
+                </div>
               </div>
-              <button
-                onClick={() => setIsFullMenuOpen(!isFullMenuOpen)}
-                className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-md flex items-center justify-center py-1 px-2"
-              >
-                <p className="text-white text-[0.5rem] font-medium">Full Menu</p>
-                <ChevronRight color="white" size={10} />
-              </button>
+              <div className="bg-gray-100 rounded-lg w-full flex justify-between items-center p-2">
+                <div className="flex items-center justify-center gap-1">
+                  <div className="bg-blue-700 w-fit h-fit rounded-full p-1 flex items-center justify-center">
+                    <MapPin size={10} color="white" />
+                  </div>
+                  <p className="text-[0.5rem] text-black font-semibold">Outlet:</p>
+                  <span className="text-[0.5rem] text-black font-medium">{restaurant.location}</span>
+                  <ChevronDown size={10} color="black" />
+                </div>
+                <div className="flex gap-1 items-center">
+                  <Clock size={10} color="black" />
+                  <span className="text-black text-[0.5rem] font-medium">{restaurant.deliveryTime}</span>
+                </div>
+              </div>
+              <div className="w-full flex justify-between">
+                <div className="flex gap-2 flex-wrap">
+                  {restaurant.itemsServ?.split(",")?.map((cuisine, index) => (
+                    <div
+                      key={index}
+                      className="flex justify-center items-center whitespace-nowrap bg-gray-200 border border-black/30 p-1 rounded-lg text-[0.7rem] font-semibold"
+                    >
+                      <p>{cuisine.trim()}</p>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setIsFullMenuOpen(!isFullMenuOpen)}
+                  className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-md flex items-center justify-center py-1 px-2"
+                >
+                  <p className="text-white text-[0.5rem] font-medium">Full Menu</p>
+                  <ChevronRight color="white" size={10} />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {isFullMenuOpen && (
-          <div
-            className="fixed top-0 left-1/2 transform -translate-x-1/2 max-w-md w-full bottom-0 bg-white z-[100] max-h-screen overflow-y-auto transition-all duration-300 ease-in-out pb-20 rounded-b-xl"
-          >
+          <div className="fixed top-0 left-1/2 transform -translate-x-1/2 max-w-md w-full bottom-0 bg-white z-[100] max-h-screen overflow-y-auto transition-all duration-300 ease-in-out pb-20 rounded-b-xl">
             <div className="sticky top-0 bg-gradient-to-r from-orange-500 to-orange-600 z-10 p-3 border-b border-gray-200 flex justify-between items-center">
               <h2 className="text-lg font-bold text-white">Full Menu</h2>
               <button onClick={() => setIsFullMenuOpen(false)}>
@@ -379,7 +451,7 @@ export default function Restaurants() {
                       price={item.price}
                       discountedPrice={item.discountedPrice}
                       description={item.description}
-                      image={item.image}
+                      image={item.image}  
                       variants={item.variants}
                       addonDetails={item.addonDetails}
                       productVarientUomId={item.productVarientUomId}
@@ -408,9 +480,67 @@ export default function Restaurants() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <div className="bg-white flex items-center justify-center px-4 py-1 border border-gray-400 rounded-lg">
-              <Filter size={18} color="black" />
-              <p className="text-[0.5rem] font-semibold ml-1">Filter</p>
+            <div className="relative">
+              <button
+                onClick={() => setIsFilterBoxOpen(!isFilterBoxOpen)}
+                className="bg-white flex items-center justify-center px-4 py-1 border border-gray-400 rounded-lg"
+              >
+                <Filter size={18} color="black" />
+                <p className="text-[0.5rem] font-semibold ml-1">Filter</p>
+              </button>
+              {isFilterBoxOpen && (
+                <div className="absolute top-full right-0 mt-2 w-full sm:w-64 bg-white rounded-lg shadow-lg p-4 flex flex-col gap-4 z-[100]">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-lg font-bold text-black">Filters</h2>
+                    <button onClick={() => setIsFilterBoxOpen(false)}>
+                      <X size={20} color="black" />
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-black">Sort By</h3>
+                      <select
+                        name="sortBy"
+                        value={filterOptions.sortBy}
+                        onChange={handleFilterChange}
+                        className="mt-1 block w-full p-2 border border-gray-300 rounded-lg bg-white h-10 text-sm focus:outline-none focus:border-orange-500"
+                      >
+                        <option value="price_high_to_low">Price: High to Low</option>
+                        <option value="price_low_to_high">Price: Low to High</option>
+                        <option value="rating_high_to_low">Rating: High to Low</option>
+                        <option value="rating_low_to_high">Rating: Low to High</option>
+                      </select>
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-black">Preference</h3>
+                      <label className="flex items-center gap-2 mt-1">
+                        <input
+                          type="checkbox"
+                          name="isVeg"
+                          checked={filterOptions.isVeg}
+                          onChange={handleFilterChange}
+                          className="text-orange-500 focus:ring-orange-500"
+                        />
+                        <span className="text-sm text-black">Vegetarian Only</span>
+                      </label>
+                    </div>
+                    <div className="flex justify-between gap-2 mt-2">
+                      <button
+                        onClick={resetFilters}
+                        className="flex-1 py-2 px-4 rounded-lg bg-gray-200 text-black text-sm font-semibold hover:bg-gray-300"
+                      >
+                        Reset
+                      </button>
+                      <button
+                        onClick={applyFilters}
+                        className="flex-1 py-2 px-4 rounded-lg bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -418,7 +548,7 @@ export default function Restaurants() {
           <button
             onClick={() => setSelectedCategory("")}
             className={`w-fit flex items-center justify-center p-1 rounded-lg ${
-              selectedCategory === "" ? "bg-orange-500 text-white" : "bg-gray-200 text-black"
+              selectedCategory === "" ? "bg-orange-600 text-white" : "bg-gray-200 text-black"
             }`}
           >
             <p className="text-sm font-medium px-2">All</p>
@@ -428,7 +558,7 @@ export default function Restaurants() {
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
               className={`w-fit flex items-center justify-center p-1 rounded-lg ${
-                selectedCategory === category.id ? "bg-orange-500 text-white" : "bg-gray-200 text-black"
+                selectedCategory === category.id ? "bg-orange-600 text-white" : "bg-gray-200 text-black"
               }`}
             >
               <p className="text-sm font-medium px-2">{category.name}</p>

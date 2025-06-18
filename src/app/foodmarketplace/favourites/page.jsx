@@ -57,10 +57,10 @@ const Favorites = () => {
           const items = response.data.data.rows.map((item) => ({
             id: item.id || item.productId,
             name: item.productLanguages?.[0]?.name || item.name || "Unknown Product",
-            price: item.varients?.[0]?.inventory?.price || 0,
-            originalPrice: item.priceInfo?.originalPrice || item.price || 0,
+            price: item.varients?.[0]?.productVarientUoms?.[0]?.inventory?.price || 0,
+            originalPrice: item.varients?.[0]?.productVarientUoms?.[0]?.inventory?.price || item.price || 0,
             isVeg: item.isVeg ?? true,
-            description: item.productLanguages?.[0]?.description || item.description || "No description",
+            description: item.productLanguages?.[0]?.name || item.description || "No description",
             image: item.image || "/placeholder.jpg",
             quantity: 1,
             variantUomId: item.varients?.[0]?.productVarientUoms?.[0]?.id || "default-uom-id",

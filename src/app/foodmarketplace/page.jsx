@@ -1,13 +1,14 @@
 "use client";
 
 import Header from "../components/Header";
-import { MapPin, Search } from "lucide-react";
+import { MapPin, MessageCircle, Search } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import axios from "axios";
 import Card from "../components/Card";
 import Link from "next/link";
 import BottomNav from "./components/BottomNavbar";
+import ChatBox from "./components/ChatBox";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 const translations = {
@@ -58,6 +59,7 @@ export default function FoodMarketPlace() {
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [isLoadingStores, setIsLoadingStores] = useState(false);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const locationDropdownRef = useRef(null);
   const storeDropdownRef = useRef(null);
@@ -324,8 +326,19 @@ export default function FoodMarketPlace() {
 
   return (
     <div className="flex justify-center overflow-x-hidden">
-      <div className="max-w-md w-full flex flex-col">
+      <div className="max-w-md w-full flex flex-col relative">
         <Header selectedLang={selectedLang} setSelectedLang={setSelectedLang} />
+         <button
+          className="z-30 w-fit h-fit rounded-full p-2 bg-orange-400 absolute bottom-20 right-4 sm:right-12"
+          onClick={() => setIsChatOpen(!isChatOpen)}
+        >
+          <MessageCircle size={20} color="white" />
+        </button>
+        {isChatOpen && (
+          <div className="z-40 absolute bottom-32 right-4 sm:right-12 w-64 sm:w-80">
+            <ChatBox onClose={() => setIsChatOpen(false)} />
+          </div>
+        )}
         {/* MAIN SECTION */}
         <section className="w-full bg-gradient-to-r from-[#f98c37] to-[#ee6416] flex flex-col items-center gap-4">
           <h1 className="text-white text-2xl font-bold text-center w-[65%] mt-4">{t.orderFood}</h1>
@@ -488,7 +501,7 @@ export default function FoodMarketPlace() {
         </section>
       </div>
       <BottomNav />
-
+      
     </div>
   );
 }
