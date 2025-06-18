@@ -25,7 +25,7 @@ const Favorites = () => {
 
   useEffect(() => {
     const fetchFavorites = async () => {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
       if (!token) {
         if (typeof window !== "undefined") {
           localStorage.setItem("redirectUrl", "/foodmarketplace/favorites");
@@ -52,7 +52,7 @@ const Favorites = () => {
             "Content-Type": "application/json",
           },
         });
-          console.log("favs",response.data.data)
+        console.log("favs", response.data.data);
         if (response.data.success && response.data.data?.rows) {
           const items = response.data.data.rows.map((item) => ({
             id: item.id || item.productId,
@@ -64,7 +64,7 @@ const Favorites = () => {
             image: item.image || "/placeholder.jpg",
             quantity: 1,
             variantUomId: item.varients?.[0]?.productVarientUoms?.[0]?.id || "default-uom-id",
-            addons: item.addons || [], 
+            addons: item.addons || [],
           }));
           setFavoriteItems(items);
         } else {
@@ -88,7 +88,7 @@ const Favorites = () => {
   const updateQuantity = (id, newQuantity) => {
     if (newQuantity <= 0) {
       setFavoriteItems(favoriteItems.filter((item) => item.id !== id));
-      console.log(favoriteItems)
+      console.log(favoriteItems);
     } else {
       setFavoriteItems(favoriteItems.map((item) =>
         item.id === id ? { ...item, quantity: newQuantity } : item
@@ -97,7 +97,7 @@ const Favorites = () => {
   };
 
   const removeFromFavorites = async (id) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("userToken");
     if (!token) {
       setShowPopup({
         type: "error",
@@ -125,7 +125,7 @@ const Favorites = () => {
       setFavoriteItems(favoriteItems.filter((item) => item.id !== id));
       setShowPopup({
         type: "success",
-        message: "Item removed from favorites!",
+        message: "Item Added to cart",
       });
       setTimeout(() => setShowPopup(null), 2000);
     } catch (error) {
@@ -139,7 +139,7 @@ const Favorites = () => {
   };
 
   const handleAddAllToCart = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("userToken");
     if (!token) {
       setShowPopup({
         type: "error",
@@ -153,17 +153,28 @@ const Favorites = () => {
     }
 
     try {
-      console.log("fav",favoriteItems)
-      for (const item of  favoriteItems) {
+      console.log("fav", favoriteItems);
+      const addedItemIds = [];
+      for (const item of favoriteItems) {
+        if (!item.variantUomId || item.variantUomId === "default-uom-id") {
+          console.error("Invalid variantUomId for item:", item);
+          setShowPopup({
+            type: "error",
+            message: `Missing variant for ${item.name}.`,
+          });
+          setTimeout(() => setShowPopup(null), 3000);
+          continue;
+        }
+
         const payload = {
           productId: item.id,
-          productVarientUomId: item.varients?.[0]?.id|| "default-uom-id",
+          productVariantUomId: item.variantUomId,
           quantity: item.quantity || 1,
           addons: item.addons?.map(addon => ({
             addOnId: addon.id || "default-addon-id",
             addOnProductId: addon.productId || "default-product-id",
             addOnVarientId: addon.variantId || "default-variant-id",
-            productVarientUomId: addon.uomId || "default-uom-id",
+            productVariantUomId: addon.uomId || "default-uom-id",
             quantity: addon.quantity || 1,
           })) || [],
         };
@@ -178,18 +189,26 @@ const Favorites = () => {
         if (!response.data.success) {
           throw new Error(`Failed to add ${item.name} to cart`);
         }
+
+        console.log(`Added ${item.name} to cart:`, response.data);
+        addedItemIds.push(item.id);
+      }
+
+      // Remove successfully added items from favorites
+      for (const id of addedItemIds) {
+        await removeFromFavorites(id);
       }
 
       setShowPopup({
         type: "success",
-        message: "All items added to cart!",
+        message: "All valid items added to cart!",
       });
       setTimeout(() => setShowPopup(null), 2000);
     } catch (error) {
       console.error("Error adding items to cart:", error);
       setShowPopup({
         type: "error",
-        message: error.response?.data?.message || "Failed to add items to cart.",
+        message: error.response?.data?.message || "Failed to add some items to cart.",
       });
       setTimeout(() => setShowPopup(null), 3000);
     }
@@ -204,7 +223,7 @@ const Favorites = () => {
         {showPopup && (
           <div
             className={`fixed top-16 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-[1000] transition-opacity duration-300 ${
-              showPopup.type === "success" ? "bg-orange-600 text-white" : "bg-red-600 text-white"
+              showPopup.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
             }`}
           >
             {showPopup.message}
@@ -256,6 +275,7 @@ const Favorites = () => {
                     item={item}
                     onUpdateQuantity={updateQuantity}
                     onRemoveFromFavorites={removeFromFavorites}
+                    onShowPopup={setShowPopup}
                   />
                 ))}
               </div>

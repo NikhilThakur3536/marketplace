@@ -47,7 +47,7 @@ export default function ItemCard({
   };
 
   const handleFavoriteToggle = async () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
     if (!token) {
       if (typeof window !== "undefined") {
         localStorage.setItem("redirectUrl", "/food-marketplace/cart");

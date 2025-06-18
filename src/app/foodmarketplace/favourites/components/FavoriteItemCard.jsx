@@ -2,30 +2,43 @@ import React from 'react';
 import { Heart, Plus, Minus } from 'lucide-react';
 import axios from 'axios';
 
-const FavoriteItemCard = ({ item, onUpdateQuantity, onRemoveFromFavorites }) => {
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-  console.log("item",item)
-  console.log("varioomid",item?.variantUomId)
+const FavoriteItemCard = ({ item, onUpdateQuantity, onRemoveFromFavorites, onShowPopup }) => {
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  console.log("item", item);
+  console.log("varioomid", item?.variantUomId);
+
   const handleAddToCart = async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
     
     if (!token) {
       console.error("No token found, please log in.");
+      onShowPopup({
+        type: "error",
+        message: "Please log in to add items to cart.",
+      });
+      return;
+    }
+
+    if (!item.variantUomId) {
+      console.error("Missing variantUomId for item:", item);
+      onShowPopup({
+        type: "error",
+        message: `Missing variant for ${item.name}.`,
+      });
       return;
     }
 
     try {
       const payload = {
         productId: item.id,
-        productVarientUomId: item.variantUomId||"hyy",
+        productVarientUomId: item.variantUomId,
         quantity: item.quantity || 1,
-        addons: item.addons?.map(addon => ({
-          addOnId: addon.id || 'default-addon-id',
-          addOnProductId: addon.productId || 'default-product-id',
-          addOnVarientId: addon.variantId || 'default-variant-id',
-          productVarientUomId: addon.uomId || 'default-uom-id',
-          quantity: addon.quantity || 1
-        })) || []
+        // addons: item.addons?.map(addon => ({
+        //   addOnId: addon.id || 'default-addon-id',
+        //   addOnProductId: addon.productId || 'default-product-id',
+        //   addOnVarientId: addon.variantId || 'default-variant-id',
+        //   quantity: addon.quantity || 1
+        // })) || []
       };
 
       const response = await axios.post(`${BASE_URL}/user/cart/addv1`, payload, {
@@ -40,10 +53,18 @@ const FavoriteItemCard = ({ item, onUpdateQuantity, onRemoveFromFavorites }) => 
       }
 
       console.log('Item added to cart:', response.data);
-      // Optionally, trigger a success popup (handled in parent component)
+      onShowPopup({
+        type: "success",
+        message: `${item.name} added to cart!`,
+      });
+      // Remove from favorites after successful cart addition
+      await onRemoveFromFavorites(item.id);
     } catch (error) {
       console.error('Error adding to cart:', error);
-      // Optionally, trigger an error popup (handled in parent component)
+      onShowPopup({
+        type: "error",
+        message: error.response?.data?.message || "Failed to add item to cart.",
+      });
     }
   };
 
