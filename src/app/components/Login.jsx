@@ -87,9 +87,12 @@ const LoginComponent = ({
       alert('Login successful!');
       console.log('Credentials login token:', response.data.data.token);
       const token = response.data.data.token;
+      const customerId=response.data.data.customer.id
       if (typeof window !== 'undefined') {
         localStorage.setItem('usertoken', token); // Changed from 'usertoken' to 'token'
         localStorage.setItem('domainId', DOMAIN_ID);
+        localStorage.setItem('customerId', DOMAIN_ID);
+
       }
       console.log('Credentials login successful, token set into local storage');
 

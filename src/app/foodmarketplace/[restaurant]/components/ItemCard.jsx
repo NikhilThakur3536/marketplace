@@ -24,8 +24,8 @@ export default function ItemCard({
   addToCart,
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false); // Track favorite status
-  const [showPopup, setShowPopup] = useState(null); // Popup for feedback
+  const [isFavorite, setIsFavorite] = useState(false); 
+  const [showPopup, setShowPopup] = useState(null); 
   const router = useRouter();
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -50,39 +50,54 @@ export default function ItemCard({
     const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
     if (!token) {
       if (typeof window !== "undefined") {
-        localStorage.setItem("redirectUrl", "/food-marketplace/cart");
+        localStorage.setItem("redirectUrl", "/foodmarketplace/login");
       }
       setShowPopup({
         type: "error",
-        message: "Please log in to add to favorites.",
+        message: "Please log in to add or remove from favorites.",
       });
       setTimeout(() => {
         setShowPopup(null);
-        router.push("/food-marketplace/login");
+        router.push("/foodmarketplace/login");
       }, 2000);
       return;
     }
 
     try {
-      const payload = { productId,productVarientUomId };
-      await axios.post(`${BASE_URL}/user/favoriteProduct/add`, payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      setIsFavorite(true);
-      setShowPopup({
-        type: "success",
-        message: `${name} added to favorites!`,
-      });
+      const payload1 = { productId};
+      const payload2 = {productId,productVarientUomId}
+      if (isFavorite) {
+        await axios.post(`${BASE_URL}/user/favoriteProduct/remove`, payload1, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        setIsFavorite(false);
+        setShowPopup({
+          type: "success",
+          message: `${name} removed from favorites!`,
+        });
+      } else {
+        // Add to favorites
+        await axios.post(`${BASE_URL}/user/favoriteProduct/add`, payload2, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        setIsFavorite(true);
+        setShowPopup({
+          type: "success",
+          message: `${name} added to favorites!`,
+        });
+      }
       setTimeout(() => setShowPopup(null), 2000);
     } catch (error) {
-      console.error("Error adding to favorites:", error);
+      console.error("Error toggling favorite:", error);
       setShowPopup({
         type: "error",
-        message: error.response?.data?.message || "Failed to add to favorites.",
+        message: error.response?.data?.message || "Failed to update favorites.",
       });
       setTimeout(() => setShowPopup(null), 3000);
     }

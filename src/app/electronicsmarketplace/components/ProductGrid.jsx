@@ -60,7 +60,7 @@ export default function ProductGrid() {
       if (!BASE_URL) throw new Error("API configuration is missing.");
 
       const payload = {
-        limit: 20, 
+        limit: 500, 
         offset: 0,
         languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
         ...(categoryId && categoryId !== "all" && { categoryId }),

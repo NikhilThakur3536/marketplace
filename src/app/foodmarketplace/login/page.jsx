@@ -40,8 +40,10 @@ export default function TestLogin() {
       }
       console.log(data)
       const token= data.data.token
+      const id= data.data.customer.id
       console.log(token)
       localStorage.setItem('userToken',token)
+      localStorage.setItem("customerId",id)
       router.push("/foodmarketplace")
 
     } catch (err) {

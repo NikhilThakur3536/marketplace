@@ -58,7 +58,9 @@ const FavoriteItemCard = ({ item, onUpdateQuantity, onRemoveFromFavorites, onSho
         message: `${item.name} added to cart!`,
       });
       // Remove from favorites after successful cart addition
-      await onRemoveFromFavorites(item.id);
+      await new Promise((resolve) => setTimeout(() => {
+      resolve(onRemoveFromFavorites(item.id));
+      }, 1000));
     } catch (error) {
       console.error('Error adding to cart:', error);
       onShowPopup({

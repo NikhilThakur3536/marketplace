@@ -7,6 +7,6 @@ export default function Login() {
     const DEVICETOKEN = process.env.NEXT_PUBLIC_ELEDEVICE_TOKEN
     
     return(
-        <LoginComponent showCredentialsLogin={false} redirectPath={"/electronicsmarketplace"} domainId={DOMAINID} deviceId={DEVICEID} deviceToken={DEVICETOKEN}/>
+        <LoginComponent showCredentialsLogin={true} redirectPath={"/electronicsmarketplace"} domainId={DOMAINID} deviceId={DEVICEID} deviceToken={DEVICETOKEN}/>
     )
 }

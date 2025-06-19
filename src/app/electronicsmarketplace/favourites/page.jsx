@@ -16,7 +16,7 @@ const Favorites = () => {
 
   useEffect(() => {
     const fetchFavorites = async () => {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
       if (!token) {
         if (typeof window !== "undefined") {
           localStorage.setItem("redirectUrl", "/foodmarketplace/favorites");
@@ -88,7 +88,7 @@ const Favorites = () => {
   };
 
   const removeFromFavorites = async (id) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("userToken");
     if (!token) {
       setShowPopup({
         type: "error",

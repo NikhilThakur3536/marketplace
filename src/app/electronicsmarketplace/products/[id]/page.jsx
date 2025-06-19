@@ -12,7 +12,7 @@ export default function ProductPage() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("description");
+  const [activeSection, setActiveSection] = useState("description");
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedStorage, setSelectedStorage] = useState("");
@@ -93,38 +93,43 @@ export default function ProductPage() {
         
         if (!fetchedProducts.length) throw new Error("No products found.");
 
-        const formattedProducts = fetchedProducts.map((product) => ({
-          id: product.id,
-          name: product.productLanguages?.[0]?.name || "Unknown Product",
-          description:
-            product.productLanguages?.[0]?.description || "No description available",
-          specifications: product.specifications || [],
-          reviews: product.reviews || [],
-          rating: product.rating || 0,
-          reviewCount: product.reviewCount || 0,
-          price: Number.isFinite(product.price)
-            ? parseFloat(product.price)
-            : Number.isFinite(product.varients?.[0]?.inventory?.price)
-              ? parseFloat(product.varients?.[0]?.inventory?.price)
-              : 0,
-          discountedPrice: product.discountedPrice && Number.isFinite(product.discountPrice)
-            ? parseFloat(product.discountedPrice) : product.varients?.[0]?.discountedPrice || null,
-          discountPercentage: product.discountPercentage && Number.isFinite(product.discountPercentage)
-            ? parseFloat(product.discountPercentage) : product.varients?.[0]?.discountPercentage || null,
-          image: product.productImages?.[0]?.url || "/placeholder.png",
-          colors: product.varients?.[0]?.colors || ["Silver"],
-          storage: product.varients?.[0]?.storage || ["512GB"],
-          isFavorite: product.isFavorite || false,
-          varientId: product.varients?.[0]?.id || null,
-        }));
+        const formattedProducts = fetchedProducts.map((product) => {
+          const colorSpec = product.specifications.find((spec) => spec.specKey === "Color");
+          const color = colorSpec ? colorSpec.specValue : product.varients?.[0]?.colors?.[0] || "Silver";
+          const storage = product.varients?.[0]?.varientLanguages?.[0]?.name || product.varients?.[0]?.storage?.[0] || "512GB";
+
+          return {
+            id: product.id,
+            name: product.productLanguages?.[0]?.name || "Unknown Product",
+            description: product.productLanguages?.[0]?.description || "No description available",
+            specifications: product.specifications || [],
+            reviews: product.reviews || [],
+            rating: product.rating || 0,
+            reviewCount: product.reviewCount || 0,
+            price: Number.isFinite(product.price)
+              ? parseFloat(product.price)
+              : Number.isFinite(product.varients?.[0]?.inventory?.price)
+                ? parseFloat(product.varients?.[0]?.inventory?.price)
+                : 0,
+            discountedPrice: product.discountedPrice && Number.isFinite(product.discountPrice)
+              ? parseFloat(product.discountedPrice) : product.varients?.[0]?.discountedPrice || null,
+            discountPercentage: product.discountPercentage && Number.isFinite(product.discountPercentage)
+              ? parseFloat(product.discountPercentage) : product.varients?.[0]?.discountPercentage || null,
+            image: product.productImages?.[0]?.url || "/placeholder.png",
+            colors: product.varients?.[0]?.colors || [color], // Use spec color or fallback to varient colors
+            storage: product.varients?.[0]?.storage || [storage.split(" ")[0]], // Extract storage value
+            isFavorite: product.isFavorite || false,
+            varientId: product.varients?.[0]?.id || null,
+          };
+        });
 
         const selectedProduct = formattedProducts.find((p) => p.id.toString() === id.toString());
 
         if (!selectedProduct) throw new Error("Product not found.");
 
         setProduct(selectedProduct);
-        setSelectedColor(selectedProduct.colors?.[0] || "");
-        setSelectedStorage(selectedProduct.storage?.[0] || "");
+        setSelectedColor(selectedProduct.colors[0]); // Set color from specifications
+        setSelectedStorage(selectedProduct.storage[0]); // Set storage from varient
       } catch (err) {
         console.error("Error fetching product:", err.message);
         setError(err.message || "Failed to load product. Please try again.");
@@ -256,14 +261,6 @@ export default function ProductPage() {
               </div>
             </div>
             <h2 className="font-bold text-2xl text-black">{product.name}</h2>
-            <h3 className="text-gray-600 text-sm">
-              {Array.isArray(product.specifications)
-                ? product.specifications
-                    .map((spec) => spec.specValue || spec.value || "N/A")
-                    .filter(Boolean)
-                    .join(", ")
-                : "N/A"}
-            </h3>
             <div className="flex gap-2">
               <span className="font-bold text-2xl text-black">
                 ₹{product.price.toLocaleString()}
@@ -280,40 +277,68 @@ export default function ProductPage() {
               )}
             </div>
             <hr className="h-[1px] w-full border-none bg-gray-400 rounded-xl mt-1" />
-            <div className="flex flex-col gap-4">
-              <h2 className="text-black font-bold text-2xl">Color</h2>
-              <div className="flex gap-2">
-                {product.colors.map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => setSelectedColor(color)}
-                    className={`px-2 py-1 border border-green-600 rounded-lg ${
-                      selectedColor === color
-                        ? "bg-[#22c55e] text-white"
-                        : "bg-white text-green-600"
-                    }`}
-                  >
-                    <span className="font-bold text-lg">{color}</span>
-                  </button>
-                ))}
+            {/* Three-column layout for Description, Specifications, Reviews */}
+            <div className="grid grid-cols-1 gap-4 mb-6">
+              <div
+                onClick={() => setActiveSection("description")}
+                className={`cursor-pointer p-3 rounded-lg border ${
+                  activeSection === "description"
+                    ? "bg-green-100 border-green-200"
+                    : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                }`}
+              >
+                <h4 className="font-medium text-gray-800 text-sm">Description</h4>
+                {activeSection === "description" && (
+                  <p className="text-sm text-gray-600 mt-2">{product.description}</p>
+                )}
               </div>
-            </div>
-            <div className="flex flex-col gap-4">
-              <h2 className="text-black font-bold text-2xl">Storage</h2>
-              <div className="flex gap-2">
-                {product.storage.map((storage) => (
-                  <button
-                    key={storage}
-                    onClick={() => setSelectedStorage(storage)}
-                    className={`px-2 py-1 border border-green-600 rounded-lg ${
-                      selectedStorage === storage
-                        ? "bg-[#22c55e] text-white"
-                        : "bg-white text-green-600"
-                    }`}
-                  >
-                    <span className="font-bold text-lg">{storage}</span>
-                  </button>
-                ))}
+              <div
+                onClick={() => setActiveSection("specifications")}
+                className={`cursor-pointer p-3 rounded-lg border ${
+                  activeSection === "specifications"
+                    ? "bg-green-100 border-green-200"
+                    : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                }`}
+              >
+                <h4 className="font-medium text-gray-800 text-sm">Specifications</h4>
+                {activeSection === "specifications" && (
+                  <div className="text-sm text-gray-600 mt-2">
+                    {product.specifications.length > 0 ? (
+                      product.specifications.map((spec, index) => (
+                        <div key={index} className="flex justify-between py-1 border-b border-gray-100">
+                          <span>{spec.specKey || spec.label || "N/A"}</span>
+                          <span>{spec.specValue || spec.value || "N/A"}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p>No specifications available</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div
+                onClick={() => setActiveSection("reviews")}
+                className={`cursor-pointer p-3 rounded-lg border ${
+                  activeSection === "reviews"
+                    ? "bg-green-100 border-green-200"
+                    : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                }`}
+              >
+                <h4 className="font-medium text-gray-800 text-sm">Reviews</h4>
+                {activeSection === "reviews" && (
+                  <div className="text-sm text-gray-600 mt-2">
+                    {product.reviews.length > 0 ? (
+                      product.reviews.map((review, index) => (
+                        <div key={index} className="border-b border-gray-100 py-2">
+                          <p>{review.comment || "No comment"}</p>
+                          <span className="text-xs text-gray-400">{review.name || "Anonymous"}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p>No reviews available</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className="mb-6">
@@ -354,115 +379,6 @@ export default function ProductPage() {
                   {cartMessage}
                 </p>
               )}
-            </div>
-            <div className="mb-6">
-              <div className="flex border-b border-gray-200">
-                {[
-                  { id: "description", label: "Description" },
-                  { id: "specifications", label: "Specifications" },
-                  { id: "reviews", label: "Reviews" },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === tab.id
-                        ? "border-green-500 text-green-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}
-                    aria-selected={activeTab === tab.id}
-                    role="tab"
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-6">
-                {activeTab === "description" && (
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">Product Description</h4>
-                    <p className="text-gray-600 leading-relaxed">{product.description}</p>
-                  </div>
-                )}
-                {activeTab === "specifications" && (
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3">
-                        Technical Specifications
-                      </h4>
-                      <div className="grid grid-cols-1 gap-3">
-                        {product.specifications.map((spec, index) => (
-                          <div
-                            key={index}
-                            className="flex justify-between py-2 border-b border-gray-100"
-                          >
-                            <span className="text-gray-600">{spec.specKey || spec.label}</span>
-                            <span className="font-medium text-gray-900">
-                              {spec.specValue || spec.value}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {activeTab === "reviews" && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-gray-900">Customer Reviews</h4>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center">
-                          {starCount.map((item) => (
-                            <Star
-                              key={item}
-                              className={`h-4 w-4 ${
-                                item <= Math.floor(product.rating)
-                                  ? "fill-yellow-400 text-yellow-400"
-                                  : "text-gray-300"
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-sm text-gray-600">
-                          {product.rating} out of 5 ({product.reviewCount} reviews)
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      {product.reviews.length > 0 ? (
-                        product.reviews.map((review, index) => (
-                          <div key={index} className="border-b border-gray-100 pb-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                                  {review.name.charAt(0)}
-                                </div>
-                                <span className="font-medium text-gray-900">{review.name}</span>
-                              </div>
-                              <div className="flex items-center">
-                                {starCount.map((item) => (
-                                  <Star
-                                    key={item}
-                                    className={`h-3 w-3 ${
-                                      item <= review.rating
-                                        ? "fill-yellow-400 text-yellow-400"
-                                        : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                            <p className="text-gray-600 text-sm">{review.comment}</p>
-                            <span className="text-xs text-gray-400">{review.date}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-gray-600">No reviews yet.</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>

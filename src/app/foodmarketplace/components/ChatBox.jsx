@@ -1,21 +1,21 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
+import axios from 'axios';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import TypingIndicator from '../components/TypingIndicator';
 
 const ChatBox = () => {
-  const [messages, setMessages] = useState([
-    {
-      id: '1',
-      text: "Hello! I'm your AI assistant. How can I help you today?",
-      isUser: false,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [chatId, setChatId] = useState(null);
   const messagesEndRef = useRef(null);
+
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+//   const AUTH_TOKEN = 'YOUR_AUTH_TOKEN'; // Replace with actual token
+//   const PARTICIPANT_ID = 'd7a34198-0efb-4f93-968c-3ce80fdd9ba3'; // Replace with actual participant ID
+//   const CUSTOMER_ID = '4b0f3e8c-6715-46bb-ae71-87279a38ed76'; // Replace with actual customer ID
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -25,9 +25,70 @@ const ChatBox = () => {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const handleSendMessage = (text) => {
+  // Create a new chat on component mount
+  useEffect(() => {
+    const id = localStorage.getItem("custoemrId")
+    const token = localStorage.getItem("userToken")
+    const createChat = async () => {
+      try {
+        const response = await axios.post(
+          `${BASE_URL}/user/chat/create`,
+          {
+            participantId: id,
+            participantType: 'seller',
+            chatType: 'direct',
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        setChatId(response.data.data.id);
+        // Optionally fetch initial messages here
+        fetchMessages(response.data.data.id);
+      } catch (error) {
+        console.error('Error creating chat:', error);
+      }
+    };
+
+    createChat();
+  }, []);
+
+  // Fetch messages for the chat
+  const fetchMessages = async (chatId) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/user/chat/${chatId}/messages`,
+        {
+          headers: {
+            Authorization: `Bearer ${AUTH_TOKEN}`,
+          },
+        }
+      );
+      // Assuming the response contains an array of messages
+      const fetchedMessages = response.data.data.map((msg) => ({
+        id: msg.id,
+        text: msg.messageText,
+        isUser: msg.senderId === CUSTOMER_ID,
+        timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        attachments: msg.attachments || [],
+      }));
+      setMessages(fetchedMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  // Handle sending a message
+  const handleSendMessage = async (text) => {
+    if (!chatId) return;
+
     const newMessage = {
-      id: Date.now().toString(),
+      id: Date.now().toString(), // Temporary ID until API response
       text,
       isUser: true,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -36,16 +97,49 @@ const ChatBox = () => {
     setMessages((prev) => [...prev, newMessage]);
     setIsTyping(true);
 
-    setTimeout(() => {
-      const aiResponse = {
-        id: (Date.now() + 1).toString(),
-        text: 'Thank you for your message! This is a demo response from the AI assistant. In a real implementation, this would be connected to an actual AI service.',
-        isUser: false,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, aiResponse]);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/user/chat/${chatId}/message`,
+        {
+          messageText: text,
+          attachments: [], // Add attachment logic if needed
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${AUTH_TOKEN}`,
+          },
+        }
+      );
+
+      // Update the message with the actual ID from the API
+      const apiMessage = response.data.data;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === newMessage.id
+            ? {
+                ...msg,
+                id: apiMessage.id,
+                attachments: apiMessage.attachments || [],
+              }
+            : msg
+        )
+      );
+
+      // Simulate AI response (replace with actual AI integration if needed)
+      setTimeout(() => {
+        const aiResponse = {
+          id: (Date.now() + 1).toString(),
+          text: 'Thank you for your message! This is a demo response from the AI assistant.',
+          isUser: false,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setMessages((prev) => [...prev, aiResponse]);
+        setIsTyping(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Error sending message:', error);
       setIsTyping(false);
-    }, 2000);
+    }
   };
 
   if (isMinimized) {
@@ -110,6 +204,7 @@ const ChatBox = () => {
               message={message.text}
               isUser={message.isUser}
               timestamp={message.timestamp}
+              attachments={message.attachments} // Pass attachments if needed
             />
           ))}
 
@@ -118,7 +213,7 @@ const ChatBox = () => {
         </div>
 
         {/* Input */}
-        <ChatInput onSendMessage={handleSendMessage} disabled={isTyping} />
+        <ChatInput onSendMessage={handleSendMessage} disabled={isTyping || !chatId} />
       </div>
     </div>
   );

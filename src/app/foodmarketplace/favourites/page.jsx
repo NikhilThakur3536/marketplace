@@ -125,7 +125,7 @@ const Favorites = () => {
       setFavoriteItems(favoriteItems.filter((item) => item.id !== id));
       setShowPopup({
         type: "success",
-        message: "Item Added to cart",
+        message: "Item Removed from Favourites",
       });
       setTimeout(() => setShowPopup(null), 2000);
     } catch (error) {
