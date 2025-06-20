@@ -1,63 +1,208 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Layout } from "../../components/Layout"
-import { Card, CardContent } from "../../components/Card"
-import { Button } from "../../components/Button"
-import { Badge } from "../../components/Badge"
-import { Icon } from "../../components/Icon"
-import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react";
+import Layout  from "../../components/Layout";
+import { Card, CardContent } from "../../components/Card";
+import { Button } from "../../components/Button";
+import { Badge } from "../../components/Badge";
+import { Icon } from "../../components/Icon";
+import Image from "next/image";
+import { useRouter, useParams } from "next/navigation";
+import axios from "axios";
+import { useCart } from "../../context/cartContext";
 
-export default function ProductPage(props) {
-  const router = useRouter()
-  const [quantity, setQuantity] = useState(1)
-  const [activeTab, setActiveTab] = useState("description")
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
 
-  // Mock product data
-  const product = {
-    id: props.params.id,
-    name: "Brembo Front Brake Pad Set P85121 for VW Ameo, Polo, Vento (1.2L)",
-    brand: "Brembo",
-    price: "₹2,450",
-    originalPrice: "₹3,200",
-    discount: "-23%",
-    rating: 4.5,
-    reviews: 128,
-    description:
-      "High-performance brake pads designed specifically for VW models. These pads offer superior stopping power, reduced brake dust, and longer life compared to standard pads.",
-    specifications: [
-      { name: "Material", value: "Semi-metallic" },
-      { name: "Position", value: "Front" },
-      { name: "Compatibility", value: "VW Ameo, Polo, Vento (1.2L)" },
-      { name: "Warranty", value: "1 Year" },
-      { name: "Package Contents", value: "4 Brake Pads" },
-    ],
-    images: [
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
-      "/placeholder.svg?height=400&width=400",
-    ],
-    inStock: true,
-    freeShipping: true,
-  }
+export default function ProductPage() {
+  const router = useRouter();
+  const { id } = useParams();
+  const [quantity, setQuantity] = useState(1);
+  const [activeTab, setActiveTab] = useState("description");
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [cartMessage, setCartMessage] = useState("");
+  const { cartItemCount, fetchCartItemCount } = useCart();
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem("userToken");
+        if (!token) {
+          router.push("/autopartsmarketplace/login");
+          return;
+        }
+
+        const payload = {
+          limit: 4000,
+          offset: 0,
+          languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
+        };
+
+        const response = await axios.post(`${BASE_URL}/user/product/listv2`, payload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        const products = response.data?.data?.rows || [];
+        if (!products.length) throw new Error("No products found.");
+
+        const rawProduct = products.find((p) => p.id === id);
+        if (!rawProduct) throw new Error("Product not found.");
+
+        const formattedProduct = {
+          id: rawProduct.id,
+          name: rawProduct.productLanguages?.[0]?.name || "Unknown Product",
+          brand: rawProduct.category?.categoryLanguages?.[0]?.name || "Generic",
+          price: `₹${rawProduct.varients?.[0]?.inventory?.price.toLocaleString() || "N/A"}`,
+          originalPrice: rawProduct.varients?.[0]?.inventory?.originalPrice
+            ? `₹${rawProduct.varients[0].inventory.originalPrice.toLocaleString()}`
+            : null,
+          discount: rawProduct.varients?.[0]?.inventory?.discountPercentage
+            ? `-${rawProduct.varients[0].inventory.discountPercentage}%`
+            : null,
+          rating: 4.5,
+          reviews: 128,
+          description:
+            rawProduct.productLanguages?.[0]?.description ||
+            "No description available for this product.",
+          specifications: rawProduct.specifications.map((spec) => ({
+            name: spec.specKey || "N/A",
+            value: spec.specValue || "N/A",
+          })),
+          images: rawProduct.productImages?.length
+            ? rawProduct.productImages.map((img) => img.url)
+            : ["/placeholder.svg?height=400&width=400"],
+          inStock: rawProduct.varients?.[0]?.inventory?.quantity > 0,
+          freeShipping: true,
+          variantId: rawProduct.varients?.[0]?.id || null,
+        };
+
+        setProduct(formattedProduct);
+      } catch (err) {
+        console.error("Error fetching product:", err.message);
+        setError(err.message || "Failed to load product. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchProduct();
+    }
+  }, [id, router]);
 
   const incrementQuantity = () => {
-    setQuantity((prev) => prev + 1)
-  }
+    setQuantity((prev) => prev + 1);
+  };
 
   const decrementQuantity = () => {
     if (quantity > 1) {
-      setQuantity((prev) => prev - 1)
+      setQuantity((prev) => prev - 1);
     }
+  };
+
+  const addToCart = async () => {
+    const token = localStorage.getItem("userToken");
+    if (!token) {
+      router.push("/autopartsmarketplace/login");
+      return;
+    }
+
+    try {
+      if (!product?.variantId) throw new Error("Variant ID not found.");
+
+      const cartResponse = await axios.post(
+        `${BASE_URL}/user/cart/listv2`,
+        { languageId: "2bfa9d89-61c4-401e-aae3-346627460558" },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Cart list response:", cartResponse.data); // Debug
+      const cartItems = cartResponse.data?.data?.rows || [];
+      const existingItem = cartItems.find(
+        (item) => item.product?.id === product.id && item.varientId === product.variantId
+      );
+
+      if (existingItem) {
+        const newQuantity = existingItem.quantity + quantity;
+        const editResponse = await axios.post(
+          `${BASE_URL}/user/cart/edit`,
+          {
+            cartId: existingItem.id,
+            quantity: newQuantity,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        console.log("Edit cart response:", editResponse.data); // Debug
+        setCartMessage(`${product.name} quantity updated in cart!`);
+      } else {
+        const cartItem = {
+          productId: product.id,
+          quantity,
+          varientId: product.variantId,
+        };
+
+        const addResponse = await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        console.log("Add to cart response:", addResponse.data); // Debug
+        setCartMessage(`${product.name} added successfully to cart!`);
+      }
+
+      await fetchCartItemCount(); // Refresh cart count
+    } catch (err) {
+      console.error("Error adding to cart:", err.message);
+      setCartMessage("Failed to add to cart. Please try again.");
+    } finally {
+      setTimeout(() => setCartMessage(""), 3000);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Layout showBackButton title="Product Details" cartItemCount={cartItemCount}>
+        <div className="p-4 text-center text-gray-400">Loading product...</div>
+      </Layout>
+    );
   }
 
-  const addToCart = () => {
-    router.push("/cart")
+  if (error) {
+    return (
+      <Layout showBackButton title="Product Details" cartItemCount={cartItemCount}>
+        <div className="p-4 text-center text-red-400">{error}</div>
+      </Layout>
+    );
+  }
+
+  if (!product) {
+    return (
+      <Layout showBackButton title="Product Details" cartItemCount={cartItemCount}>
+        <div className="p-4 text-center text-gray-400">Product not found.</div>
+      </Layout>
+    );
   }
 
   return (
-    <Layout showBackButton title="Product Details">
+    <Layout showBackButton title="Product Details" cartItemCount={cartItemCount}>
       <div className="p-4">
         {/* Product Images */}
         <div className="relative mb-4">
@@ -98,7 +243,9 @@ export default function ProductPage(props) {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-2xl font-bold">{product.price}</span>
-            <span className="text-gray-400 line-through">{product.originalPrice}</span>
+            {product.originalPrice && (
+              <span className="text-gray-400 line-through">{product.originalPrice}</span>
+            )}
           </div>
           {product.freeShipping && (
             <div className="mt-2">
@@ -183,15 +330,24 @@ export default function ProductPage(props) {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1">
-            Buy Now
-          </Button>
+        <div className="flex gap-3 relative">
           <Button variant="primary" className="flex-1" onClick={addToCart}>
             Add to Cart
           </Button>
+          {cartMessage && (
+            <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg z-50 flex items-center justify-between max-w-xs w-full">
+              <p>{cartMessage}</p>
+              <button
+                onClick={() => setCartMessage("")}
+                className="ml-4 text-white hover:text-gray-200"
+                aria-label="Close notification"
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </Layout>
-  )
+  );
 }

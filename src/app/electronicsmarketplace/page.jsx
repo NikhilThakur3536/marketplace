@@ -22,9 +22,9 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-md mx-auto bg-[#EEF9FA] min-h-screen ">
+      <div className="max-w-md mx-auto bg-[#EEF9FA] min-h-screen px-2">
         <Header />
-        <div className="px-4 space-y-1">
+        <div className="px-4">
           <PromoBanner />
           <CategoryTabs />
           <ProductGrid />

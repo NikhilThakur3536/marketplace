@@ -57,7 +57,6 @@ const FavoriteItemCard = ({ item, onUpdateQuantity, onRemoveFromFavorites, onSho
         type: "success",
         message: `${item.name} added to cart!`,
       });
-      // Remove from favorites after successful cart addition
       await new Promise((resolve) => setTimeout(() => {
       resolve(onRemoveFromFavorites(item.id));
       }, 1000));

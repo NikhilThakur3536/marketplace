@@ -15,56 +15,11 @@ export default function ProductPage() {
   const [activeSection, setActiveSection] = useState("description");
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState("");
-  const [selectedStorage, setSelectedStorage] = useState("");
   const [cartItems, setCartItems] = useState([]);
-  const [cartMessage, setCartMessage] = useState("");
+  const [cartMessage, setCartMessage] = useState(""); // Reusing for toast notification
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
   const { id } = useParams();
   const router = useRouter();
-
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      try {
-        const parsedCart = JSON.parse(savedCart);
-        if (Array.isArray(parsedCart)) {
-          setCartItems(parsedCart);
-        } else {
-          console.error("Invalid cart data in localStorage, resetting to empty array");
-          setCartItems([]);
-          localStorage.setItem("cart", JSON.stringify([]));
-        }
-      } catch (e) {
-        console.error("Error parsing cart from localStorage:", e);
-        setCartItems([]);
-        localStorage.setItem("cart", JSON.stringify([]));
-      }
-    }
-  }, []);
-
-  // Save cart to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cartItems));
-  }, [cartItems]);
-
-  // Listen for storage changes (e.g., from other tabs)
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === "cart") {
-        try {
-          const newCart = e.newValue ? JSON.parse(e.newValue) : [];
-          if (Array.isArray(newCart)) {
-            setCartItems(newCart);
-          }
-        } catch (error) {
-          console.error("Error parsing updated cart from storage event:", error);
-        }
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -92,11 +47,12 @@ export default function ProductPage() {
         const fetchedProducts = response.data?.data?.rows || [];
         
         if (!fetchedProducts.length) throw new Error("No products found.");
+        console.log("fetchedProducts", fetchedProducts);
 
         const formattedProducts = fetchedProducts.map((product) => {
           const colorSpec = product.specifications.find((spec) => spec.specKey === "Color");
-          const color = colorSpec ? colorSpec.specValue : product.varients?.[0]?.colors?.[0] || "Silver";
-          const storage = product.varients?.[0]?.varientLanguages?.[0]?.name || product.varients?.[0]?.storage?.[0] || "512GB";
+          const color = colorSpec ? colorSpec.specValue : product.variants?.[0]?.colors?.[0] || "Silver";
+          const storage = product.variants?.[0]?.varientLanguages?.[0]?.name || product.variants?.[0]?.storage?.[0] || "512GB";
 
           return {
             id: product.id,
@@ -106,20 +62,16 @@ export default function ProductPage() {
             reviews: product.reviews || [],
             rating: product.rating || 0,
             reviewCount: product.reviewCount || 0,
-            price: Number.isFinite(product.price)
-              ? parseFloat(product.price)
-              : Number.isFinite(product.varients?.[0]?.inventory?.price)
-                ? parseFloat(product.varients?.[0]?.inventory?.price)
-                : 0,
+            price: product.varients?.[0]?.inventory?.price,
             discountedPrice: product.discountedPrice && Number.isFinite(product.discountPrice)
-              ? parseFloat(product.discountedPrice) : product.varients?.[0]?.discountedPrice || null,
+              ? parseFloat(product.discountedPrice) : product.variants?.[0]?.discountedPrice || null,
             discountPercentage: product.discountPercentage && Number.isFinite(product.discountPercentage)
-              ? parseFloat(product.discountPercentage) : product.varients?.[0]?.discountPercentage || null,
+              ? parseFloat(product.discountPercentage) : product.variants?.[0]?.discountPercentage || null,
             image: product.productImages?.[0]?.url || "/placeholder.png",
-            colors: product.varients?.[0]?.colors || [color], // Use spec color or fallback to varient colors
-            storage: product.varients?.[0]?.storage || [storage.split(" ")[0]], // Extract storage value
+            colors: product.variants?.[0]?.colors || [color],
+            storage: product.variants?.[0]?.storage || [storage.split(" ")[0]],
             isFavorite: product.isFavorite || false,
-            varientId: product.varients?.[0]?.id || null,
+            variantId: product.varients?.[0]?.id || null,
           };
         });
 
@@ -128,8 +80,9 @@ export default function ProductPage() {
         if (!selectedProduct) throw new Error("Product not found.");
 
         setProduct(selectedProduct);
-        setSelectedColor(selectedProduct.colors[0]); // Set color from specifications
-        setSelectedStorage(selectedProduct.storage[0]); // Set storage from varient
+        setSelectedColor(selectedProduct.colors[0]);
+        console.log(selectedProduct);
+
       } catch (err) {
         console.error("Error fetching product:", err.message);
         setError(err.message || "Failed to load product. Please try again.");
@@ -148,16 +101,19 @@ export default function ProductPage() {
   };
 
   const addToCart = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) throw new Error("Authentication token not found.");
-      if (!product.varientId) throw new Error("Variant ID not found for this product.");
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setShowAuthPopup(true);
+      return;
+    }
 
-      // Update server-side cart
+    try {
+      if (!product.variantId) throw new Error("Variant ID not found for this product.");
+
       const cartItem = {
         productId: product.id,
         quantity,
-        varientId: product.varientId,
+        varientId: product.variantId,
       };
 
       await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
@@ -167,24 +123,13 @@ export default function ProductPage() {
         },
       });
 
-      // Update client-side cart
-      setCartItems((prevCart) => {
-        const existingItem = prevCart.find((item) => item.id === product.id && item.varientId === product.varientId);
-        let newCart;
-        if (existingItem) {
-          newCart = prevCart.map((item) =>
-            item.id === product.id && item.varientId === product.varientId
-              ? { ...item, quantity: item.quantity + quantity }
-              : item
-          );
-        } else {
-          newCart = [...prevCart, { id: product.id, varientId: product.varientId, quantity }];
-        }
-        return newCart;
-      });
-
-      setCartMessage(`${product.name} added to cart!`);
+      // Show toast notification
+      setCartMessage(`${product.name} added successfully to cart!`);
       setTimeout(() => setCartMessage(""), 3000);
+
+      // Update local cart items for badge count
+      setCartItems((prev) => [...prev, { ...cartItem, name: product.name }]);
+
     } catch (err) {
       console.error("Error adding to cart:", err.message);
       setCartMessage("Failed to add to cart. Please try again.");
@@ -362,7 +307,7 @@ export default function ProductPage() {
                 </button>
               </div>
             </div>
-            <div className="mb-6">
+            <div className="mb-6 relative">
               <button
                 onClick={addToCart}
                 className="w-full bg-green-600 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-colors"
@@ -371,15 +316,48 @@ export default function ProductPage() {
                 Add to Cart
               </button>
               {cartMessage && (
-                <p
-                  className={`mt-2 text-center text-sm ${
-                    cartMessage.includes("Failed") ? "text-red-500" : "text-green-600"
-                  }`}
-                >
-                  {cartMessage}
-                </p>
+                <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg z-50 flex items-center justify-between max-w-xs w-full">
+                  <p>{cartMessage}</p>
+                  <button
+                    onClick={() => setCartMessage("")}
+                    className="ml-4 text-white hover:text-gray-200"
+                    aria-label="Close notification"
+                  >
+                    ✕
+                  </button>
+                </div>
               )}
             </div>
+            {/* Authentication Popup */}
+            {showAuthPopup && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+                  <p className="text-center text-gray-800 mb-4">
+                    Please login first to add item to cart.
+                  </p>
+                  <div className="flex gap-4 justify-center">
+                    <button
+                      onClick={() => {
+                        setShowAuthPopup(false);
+                        router.push("/electronicsmarketplace/login");
+                      }}
+                      className="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Login
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAuthPopup(false);
+                        router.push("/electronicsmarketplace/register");
+                      }}
+                      className="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      Sign Up
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

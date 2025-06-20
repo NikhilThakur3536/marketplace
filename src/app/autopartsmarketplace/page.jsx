@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Layout } from "./components/Layout";
+import  Layout  from "./components/Layout";
 import { Button } from "./components/Button";
 import { Icon } from "./components/Icon";
 import { Input } from "./components/Input";
@@ -14,61 +14,6 @@ export default function HomePage() {
   const [viewMode, setViewMode] = useState("grid");
   const [products, setProducts] = useState([]);
 
-  const staticProducts = [
-    {
-      id: "1",
-      name: "Brembo Front Brake Pad Set P85121",
-      brand: "Brembo",
-      price: "₹2,450",
-      originalPrice: "₹3,200",
-      discount: "-23%",
-      rating: 4.5,
-      reviews: 128,
-      image: "/placeholder.svg?height=200&width=200",
-      freeShipping: true,
-      inStock: true,
-    },
-    {
-      id: "2",
-      name: "Brembo Front Brake Pad Set P54030",
-      brand: "Brembo",
-      price: "₹2,890",
-      originalPrice: "₹3,750",
-      discount: "-23%",
-      rating: 4.7,
-      reviews: 95,
-      image: "/placeholder.svg?height=200&width=200",
-      freeShipping: true,
-      inStock: true,
-    },
-    {
-      id: "3",
-      name: "Brembo Front Brake Pad Set P28034",
-      brand: "Brembo",
-      price: "₹3,120",
-      originalPrice: "₹4,050",
-      discount: "-23%",
-      rating: 4.6,
-      reviews: 156,
-      image: "/placeholder.svg?height=200&width=200",
-      freeShipping: true,
-      inStock: false,
-    },
-    {
-      id: "4",
-      name: "Brembo Front Brake Pad Set P28023",
-      brand: "Brembo",
-      price: "₹2,750",
-      originalPrice: "₹3,580",
-      discount: "-23%",
-      rating: 4.4,
-      reviews: 87,
-      image: "/placeholder.svg?height=200&width=200",
-      freeShipping: true,
-      inStock: true,
-    },
-  ];
-
   const categories = [
     { name: "Brake", icon: "🛞", color: "bg-blue-600" },
     { name: "Engine", icon: "⚙️", color: "bg-green-600" },
@@ -80,51 +25,60 @@ export default function HomePage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("userToken");
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-        const response = await axios.post(`${BASE_URL}/user/product/listv2`, {
-          limit: 4000,
-          offset: 0,
-          languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
-        }, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+        if (!token) {
+          router.push("/autopartsmarketplace/login");
+          return;
+        }
+
+        const response = await axios.post(
+          `${BASE_URL}/user/product/listv2`,
+          {
+            limit: 4000,
+            offset: 0,
+            languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
           },
-        });
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        console.log("Product List Response:", response.data);
 
         if (response.data?.success && response.data?.data?.rows?.length > 0) {
           const apiProducts = response.data.data.rows.map((product) => {
             const variant = product.varients[0];
             const price = variant?.inventory?.price || 0;
-            const originalPrice = price * 1.3; // Assume 30% discount for original price
-            const discount = "-23%"; // Static discount for consistency
+            const originalPrice = price * 1.3;
+            const discount = "-23%";
             return {
               id: product.id,
               name: product.productLanguages[0]?.name || "Unknown Product",
-              brand: "Generic", // API doesn't provide brand
+              brand: "Generic",
               price: `₹${price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
               originalPrice: `₹${originalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
               discount,
-              rating: 4.5, // Static rating as API doesn't provide
-              reviews: 100, // Static reviews as API doesn't provide
-              image: "/placeholder.svg?height=200&width=200", // Fallback image
-              freeShipping: true, // Static value
+              rating: 4.5,
+              reviews: 100,
+              image: product.productImages?.[0]?.url || "/placeholder.svg?height=200&width=200",
+              freeShipping: true,
               inStock: parseFloat(variant?.inventory?.quantity || 0) > 0,
             };
           });
           setProducts(apiProducts);
         } else {
-          setProducts(staticProducts); // Fallback to static data
+          console.log("No products found");
         }
       } catch (error) {
         console.error("Error fetching products:", error);
-        setProducts(staticProducts); // Fallback to static data on error
       }
     };
 
     fetchProducts();
-  }, []);
+  }, [router]);
 
   return (
     <Layout>
@@ -217,7 +171,7 @@ export default function HomePage() {
             <div
               key={product.id}
               className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden"
-              onClick={() => router.push(`/product/${product.id}`)}
+              onClick={() => router.push(`/autopartsmarketplace/product/${product.id}`)}
             >
               <div className="relative">
                 <Image

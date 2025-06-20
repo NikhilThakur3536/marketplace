@@ -4,10 +4,12 @@ import React from "react";
 import { Icon } from "./Icon";
 import { Badge } from "./Badge";
 import { usePathname, useRouter } from "next/navigation";
+import { useCart } from "../context/cartContext";
 
-export function Layout({ children, title, showBackButton = false, showHeader = true, showFooter = true }) {
+export default function Layout({ children, title, showBackButton = false, showHeader = true, showFooter = true }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { cartItemCount } = useCart();
 
   const navItems = [
     { name: "Home", icon: "home", path: "/autopartsmarketplace" },
@@ -43,7 +45,7 @@ export function Layout({ children, title, showBackButton = false, showHeader = t
             </div>
             <div className="flex items-center gap-2">
               <button className="relative">
-                <Icon name="bell" size={20} />
+                <Icon name="heart" size={20} />
                 <Badge
                   variant="danger"
                   className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0"
@@ -51,11 +53,19 @@ export function Layout({ children, title, showBackButton = false, showHeader = t
                   2
                 </Badge>
               </button>
-              <button className="relative" onClick={() => router.push("/autopartsmarketplace/cart")}>
+              <button
+                className="relative"
+                onClick={() => router.push("/autopartsmarketplace/cart")}
+              >
                 <Icon name="cart" size={20} />
-                <Badge variant="info" className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0">
-                  3
-                </Badge>
+                {cartItemCount > 0 && (
+                  <Badge
+                    variant="info"
+                    className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0"
+                  >
+                    {cartItemCount}
+                  </Badge>
+                )}
               </button>
             </div>
           </div>
