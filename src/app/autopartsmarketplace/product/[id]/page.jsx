@@ -22,6 +22,7 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [cartMessage, setCartMessage] = useState("");
+  const [popup,setPopup] = useState("")
   const { cartItemCount, fetchCartItemCount } = useCart();
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export default function ProductPage() {
         setLoading(true);
         setError(null);
 
-        const token = localStorage.getItem("userToken");
+        const token = localStorage.getItem("token");
         if (!token) {
           router.push("/autopartsmarketplace/login");
           return;
@@ -110,7 +111,10 @@ export default function ProductPage() {
   const addToCart = async () => {
     const token = localStorage.getItem("userToken");
     if (!token) {
-      router.push("/autopartsmarketplace/login");
+      setPopup("Login In First To Add Item To Cart")
+      setTimeout(() => {
+         router.push("/autopartsmarketplace/login");
+      }, 1000);
       return;
     }
 
@@ -128,7 +132,7 @@ export default function ProductPage() {
         }
       );
 
-      console.log("Cart list response:", cartResponse.data); // Debug
+      console.log("Cart list response:", cartResponse.data);
       const cartItems = cartResponse.data?.data?.rows || [];
       const existingItem = cartItems.find(
         (item) => item.product?.id === product.id && item.varientId === product.variantId
@@ -149,7 +153,7 @@ export default function ProductPage() {
             },
           }
         );
-        console.log("Edit cart response:", editResponse.data); // Debug
+        console.log("Edit cart response:", editResponse.data); 
         setCartMessage(`${product.name} quantity updated in cart!`);
       } else {
         const cartItem = {
@@ -164,7 +168,7 @@ export default function ProductPage() {
             "Content-Type": "application/json",
           },
         });
-        console.log("Add to cart response:", addResponse.data); // Debug
+        console.log("Add to cart response:", addResponse.data); 
         setCartMessage(`${product.name} added successfully to cart!`);
       }
 
@@ -339,6 +343,18 @@ export default function ProductPage() {
               <p>{cartMessage}</p>
               <button
                 onClick={() => setCartMessage("")}
+                className="ml-4 text-white hover:text-gray-200"
+                aria-label="Close notification"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          {popup && (
+            <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg z-50 flex items-center justify-between max-w-xs w-full">
+              <p>{popup}</p>
+              <button
+                onClick={() => setPopup("")}
                 className="ml-4 text-white hover:text-gray-200"
                 aria-label="Close notification"
               >
