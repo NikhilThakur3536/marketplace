@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Layout } from "../components/Layout"
+import Layout from "../components/Layout"
 import { Card, CardContent } from "../components/Card"
 import { Button } from "../components/Button"
 import { Icon } from "../components/Icon"
