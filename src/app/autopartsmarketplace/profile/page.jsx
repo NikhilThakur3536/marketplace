@@ -1,6 +1,6 @@
 "use client"
 
-import { Layout } from "../components/Layout"
+import Layout from "../components/Layout"
 import { Card, CardContent } from "../components/Card"
 import { Button } from "../components/Button"
 import { Icon } from "../components/Icon"
