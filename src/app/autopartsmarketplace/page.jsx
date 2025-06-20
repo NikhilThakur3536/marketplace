@@ -66,7 +66,7 @@ export default function HomePage() {
         if (search) {
           productPayload.searchKey = search;
         } else if (brandId) {
-          productPayload.manufacturerId = brandId;
+          productPayload.searchKey= brandId;
         }
 
         const productResponse = await axios.post(
