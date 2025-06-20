@@ -6,14 +6,14 @@ import axios from "axios";
 
 const CartContext = createContext();
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ;
 
 export function CartProvider({ children }) {
   const [cartItemCount, setCartItemCount] = useState(null); 
 
   const fetchCartItemCount = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userToken");
       if (!token) return;
 
       const response = await axios.post(

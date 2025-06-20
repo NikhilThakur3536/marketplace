@@ -13,7 +13,7 @@ export default function Layout({ children, title, showBackButton = false, showHe
 
   const navItems = [
     { name: "Home", icon: "home", path: "/autopartsmarketplace" },
-    { name: "Search", icon: "search", path: "/search" },
+    { name: "Orders", icon: "list", path: "/autopartsmarketplace/orders" },
     { name: "Favorites", icon: "heart", path: "/autopartsmarketplace/favorites" },
     { name: "Profile", icon: "user", path: "/autopartsmarketplace/profile" },
   ];
@@ -44,15 +44,7 @@ export default function Layout({ children, title, showBackButton = false, showHe
               )}
             </div>
             <div className="flex items-center gap-2">
-              <button className="relative">
-                <Icon name="heart" size={20} />
-                <Badge
-                  variant="danger"
-                  className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0"
-                >
-                  2
-                </Badge>
-              </button>
+              
               <button
                 className="relative"
                 onClick={() => router.push("/autopartsmarketplace/cart")}
