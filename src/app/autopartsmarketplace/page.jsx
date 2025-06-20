@@ -25,7 +25,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const token = localStorage.getItem("userToken");
+        const token = localStorage.getItem("token");
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
         if (!token) {
           router.push("/autopartsmarketplace/login");
