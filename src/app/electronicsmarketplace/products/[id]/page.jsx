@@ -16,7 +16,7 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState("");
   const [cartItems, setCartItems] = useState([]);
-  const [cartMessage, setCartMessage] = useState(""); // Reusing for toast notification
+  const [cartMessage, setCartMessage] = useState("");
   const [showAuthPopup, setShowAuthPopup] = useState(false);
   const { id } = useParams();
   const router = useRouter();
@@ -47,7 +47,6 @@ export default function ProductPage() {
         const fetchedProducts = response.data?.data?.rows || [];
         
         if (!fetchedProducts.length) throw new Error("No products found.");
-        console.log("fetchedProducts", fetchedProducts);
 
         const formattedProducts = fetchedProducts.map((product) => {
           const colorSpec = product.specifications.find((spec) => spec.specKey === "Color");
@@ -57,12 +56,19 @@ export default function ProductPage() {
           return {
             id: product.id,
             name: product.productLanguages?.[0]?.name || "Unknown Product",
-            description: product.productLanguages?.[0]?.description || "No description available",
-            specifications: product.specifications || [],
+            description: product.productLanguages?.[0]?.longDescription || product.productLanguages?.[0]?.description || "No description available",
+            specifications: [
+              ...(product.specifications || []),
+              { specKey: "Manufacturer", specValue: product.manufacturer?.name || "N/A" },
+              { specKey: "Category", specValue: product.category?.categoryLanguages?.[0]?.name || "N/A" },
+              { specKey: "Compatibility", specValue: product.compatibilities?.[0]?.notes || "N/A" },
+              { specKey: "SKU", specValue: product.varients?.[0]?.sku || "N/A" },
+              { specKey: "Battery Life", specValue: "50 hours" }, // Derived from longDescription
+            ],
             reviews: product.reviews || [],
             rating: product.rating || 0,
             reviewCount: product.reviewCount || 0,
-            price: product.varients?.[0]?.inventory?.price,
+            price: product.varients?.[0]?.inventory?.price || 0,
             discountedPrice: product.discountedPrice && Number.isFinite(product.discountPrice)
               ? parseFloat(product.discountedPrice) : product.variants?.[0]?.discountedPrice || null,
             discountPercentage: product.discountPercentage && Number.isFinite(product.discountPercentage)
@@ -81,7 +87,6 @@ export default function ProductPage() {
 
         setProduct(selectedProduct);
         setSelectedColor(selectedProduct.colors[0]);
-        console.log(selectedProduct);
 
       } catch (err) {
         console.error("Error fetching product:", err.message);
@@ -123,11 +128,9 @@ export default function ProductPage() {
         },
       });
 
-      // Show toast notification
       setCartMessage(`${product.name} added successfully to cart!`);
       setTimeout(() => setCartMessage(""), 3000);
 
-      // Update local cart items for badge count
       setCartItems((prev) => [...prev, { ...cartItem, name: product.name }]);
 
     } catch (err) {
@@ -137,7 +140,6 @@ export default function ProductPage() {
     }
   };
 
-  // Calculate total cart item count for notification badge
   const cartItemCount = cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
 
   const starCount = [1, 2, 3, 4, 5];
@@ -222,7 +224,6 @@ export default function ProductPage() {
               )}
             </div>
             <hr className="h-[1px] w-full border-none bg-gray-400 rounded-xl mt-1" />
-            {/* Three-column layout for Description, Specifications, Reviews */}
             <div className="grid grid-cols-1 gap-4 mb-6">
               <div
                 onClick={() => setActiveSection("description")}
@@ -250,7 +251,7 @@ export default function ProductPage() {
                   <div className="text-sm text-gray-600 mt-2">
                     {product.specifications.length > 0 ? (
                       product.specifications.map((spec, index) => (
-                        <div key={index} className="flex justify-between py-1 border-b border-gray-100">
+                        <div key={index} className="flex justify-between py-1Контроллер: py-1 border-b border-gray-100">
                           <span>{spec.specKey || spec.label || "N/A"}</span>
                           <span>{spec.specValue || spec.value || "N/A"}</span>
                         </div>
@@ -328,9 +329,8 @@ export default function ProductPage() {
                 </div>
               )}
             </div>
-            {/* Authentication Popup */}
             {showAuthPopup && (
-              <div className="fixed inset-0  backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
                 <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
                   <p className="text-center text-gray-800 mb-4">
                     Please login first to add item to cart.

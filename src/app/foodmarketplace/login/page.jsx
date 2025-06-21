@@ -3,6 +3,7 @@
 import { Lock, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function TestLogin() {
   const [identifier, setIdentifier] = useState("");
@@ -11,6 +12,7 @@ export default function TestLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const BASE_URL=process.env.NEXT_PUBLIC_BASE_URL
   const DOMAINID=process.env.NEXT_PUBLIC_DOMAIN_ID
+  const router= useRouter()
 
   const handleLogin = async () => {
     setError("");
@@ -23,6 +25,7 @@ export default function TestLogin() {
     };
 
     try {
+      const redirectUrl=localStorage.getItem("lastRestaurantUrl")
       const response = await fetch(`${BASE_URL}/user/auth/customer-login`, {
         method: "POST",
         headers: {
@@ -37,11 +40,10 @@ export default function TestLogin() {
         throw new Error(data.message || "Login failed");
       }
 
-      // Handle successful login (e.g., store token, redirect, etc.)
       console.log("Login successful:", data);
-      // Example: You might want to redirect or update app state here
-      // window.location.href = "/dashboard";
+    
        localStorage.setItem('userToken', data?.data?.token || '');
+       router.push(redirectUrl)
     } catch (err) {
       setError(err.message || "An error occurred during login");
     } finally {
