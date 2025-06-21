@@ -79,7 +79,7 @@ export default function HomePage() {
             },
           }
         );
-        console.log("Product List Response:", productResponse.data);
+        // console.log("Product List Response:", productResponse.data);
 
         if (productResponse.data?.success && productResponse.data?.data?.rows?.length > 0) {
           const apiProducts = productResponse.data.data.rows.map((product) => {
@@ -125,7 +125,7 @@ export default function HomePage() {
 
   const handleBrandClick = (manufacturerId) => {
     setSelectedBrandId(manufacturerId);
-    setSearchTerm(""); // Clear search term when selecting a brand
+    setSearchTerm(""); 
   };
 
   const handleSearchChange = (e) => {
