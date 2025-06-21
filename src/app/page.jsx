@@ -23,8 +23,6 @@ export default function MarketplaceSelection() {
   const AUTO_DEVICE_TOKEN = process.env.NEXT_PUBLIC_AUTODEVICE_TOKEN;
 
 
-  // const AUTO_DOMAIN_ID = process.env.NEXT_PUBLIC_AUTO_DOMAIN_ID;
-
   const handleGuestLogin = async (domainId,deviceId,deviceToken) => {
     try {
       const response = await axios.post(`${BASE_URL}/user/auth/guest-login`, {
