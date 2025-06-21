@@ -101,7 +101,7 @@ export default function ProductPage() {
   };
 
   const addToCart = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("userToken");
     if (!token) {
       setShowAuthPopup(true);
       return;
@@ -330,7 +330,7 @@ export default function ProductPage() {
             </div>
             {/* Authentication Popup */}
             {showAuthPopup && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="fixed inset-0  backdrop-blur-sm flex items-center justify-center z-50">
                 <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
                   <p className="text-center text-gray-800 mb-4">
                     Please login first to add item to cart.

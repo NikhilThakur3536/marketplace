@@ -18,7 +18,7 @@ export default function MarketplaceSelection() {
   const ELECTRONICS_DOMAIN_ID = process.env.NEXT_PUBLIC_ELECDOMAIN_ID;
   const ELECTRONIC_DEVICE_ID = process.env.NEXT_PUBLIC_ELEDEVICE_ID;
   const ELECTRONIC_DEVICE_TOKEN = process.env.NEXT_PUBLIC_ELEDEVICE_TOKEN;
-  const AUTO_DOMAIN_ID = process.env.NEXT_PUBLIC_AUTODOMAIN_ID || "0db2deaf-3dda-4a0e-afc4-368fd3e2f4db";  
+  const AUTO_DOMAIN_ID = process.env.NEXT_PUBLIC_AUTODOMAIN_ID;  
   const AUTO_DEVICE_ID = process.env.NEXT_PUBLIC_AUTODEVICE_ID;
   const AUTO_DEVICE_TOKEN = process.env.NEXT_PUBLIC_AUTODEVICE_TOKEN;
 

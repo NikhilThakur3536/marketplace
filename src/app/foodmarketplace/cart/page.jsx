@@ -15,7 +15,6 @@ import {
   removeItem,
   updateQuantity,
   placeOrder,
-  setCartItems,
   setRedirectUrl,
   setOrderType,
   setSelectedCoupon,
@@ -58,7 +57,7 @@ export default function Cart() {
   // Fetch initial data
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('userToken');
       if (token) {
         dispatch(fetchCartItems());
         dispatch(fetchUserAddress());

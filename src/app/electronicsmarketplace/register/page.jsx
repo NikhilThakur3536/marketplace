@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Mail, Lock, UserRound, Phone } from "lucide-react";
 import { useState } from "react";
 import axios from "axios";
-import { useRouter } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 
 export default function TestSignup() {
   const [formData, setFormData] = useState({
@@ -194,7 +194,7 @@ export default function TestSignup() {
           </div>
           <motion.button
             type="submit"
-            className="w-[40%] bg-gradient-to-r from-green-400 to-green-500 rounded-2xl py-2 text-white font-semibold text-xl absolute bottom-11"
+            className="w-[40%] bg-gradient-to-r from-green-400 to-green-500 rounded-2xl py-2 text-white font-semibold text-xl absolute bottom-20"
             whileHover={{ scale: 1.05, boxShadow: "0px 1px 12px #4ADE80" }}
             whileInView={{ scale: 1 }}
             disabled={isLoading}
@@ -202,11 +202,11 @@ export default function TestSignup() {
             {isLoading ? "Signing up..." : "Submit"}
           </motion.button>
         </form>
-        <div className="flex gap-1 absolute bottom-4     w-full justify-center">
+        <div className="z-40 flex gap-1 absolute bottom-8 w-full justify-center">
           <p>Already have an account?</p>
           <span
             className="text-green-400 font-bold cursor-pointer"
-            onClick={() => router.push("/electronicsmarketplace/login")}
+            onClick={() => redirect("/electronicsmarketplace/login")}
           >
             Sign In
           </span>

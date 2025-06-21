@@ -7,9 +7,27 @@ import { Icon } from "../components/Icon"
 import { Badge } from "../components/Badge"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
 
 export default function ProfilePage() {
   const router = useRouter()
+  const [showAddressModal, setShowAddressModal] = useState(false)
+  const [addressError, setAddressError] = useState(null)
+  const [cartMessage, setCartMessage] = useState("")
+  const [isEdit, setIsEdit] = useState(false)
+  const [formData, setFormData] = useState({
+    customerAddressId: "",
+    name: "",
+    addressLine1: "",
+    addressLine2: "",
+    road: "",
+    landmark: "",
+    mobile: "",
+    defaultAddress: false,
+    label: "",
+    latitude: "",
+    longitude: "",
+  })
 
   const user = {
     name: "John Doe",
@@ -19,39 +37,116 @@ export default function ProfilePage() {
     memberSince: "Jan 2023",
   }
 
+  const BASE_URL = "https://api.autopartsmarketplace.com" // Replace with your actual API base URL
+
+  const fetchAddresses = async () => {
+    // Placeholder for fetching addresses; implement as needed
+    console.log("Fetching addresses...")
+  }
+
+  const handleAddressSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      const token = localStorage.getItem("userToken") || localStorage.getItem("token")
+      if (!token) {
+        router.push("/autopartsmarketplace/login")
+        return
+      }
+
+      const url = isEdit
+        ? `${BASE_URL}/user/customerAddress/edit`
+        : `${BASE_URL}/user/customerAddress/add`
+      const payload = isEdit
+        ? {
+            customerAddressId: formData.customerAddressId,
+            name: formData.name,
+            addressLine1: formData.addressLine1,
+            landmark: formData.landmark,
+            defaultAddress: formData.defaultAddress,
+          }
+        : {
+            name: formData.name,
+            addressLine1: formData.addressLine1,
+            addressLine2: formData.addressLine2,
+            road: formData.road,
+            landmark: formData.landmark,
+            mobile: formData.mobile,
+            defaultAddress: formData.defaultAddress,
+            label: formData.label,
+            latitude: formData.latitude,
+            longitude: formData.longitude,
+          }
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to ${isEdit ? "update" : "add"} address.`)
+      }
+
+      await fetchAddresses()
+      setShowAddressModal(false)
+      setAddressError(null)
+      setCartMessage(`Address ${isEdit ? "updated" : "added"} successfully!`)
+      setTimeout(() => setCartMessage(""), 3000)
+    } catch (err) {
+      setAddressError(err.message || `Failed to ${isEdit ? "update" : "add"} address.`)
+    }
+  }
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }))
+  }
+
+  const openAddressModal = (edit = false, address = {}) => {
+    setIsEdit(edit)
+    setFormData({
+      customerAddressId: address.customerAddressId || "",
+      name: address.name || "",
+      addressLine1: address.addressLine1 || "",
+      addressLine2: address.addressLine2 || "",
+      road: address.road || "",
+      landmark: address.landmark || "",
+      mobile: address.mobile || "",
+      defaultAddress: address.defaultAddress || false,
+      label: address.label || "",
+      latitude: address.latitude || "",
+      longitude: address.longitude || "",
+    })
+    setShowAddressModal(true)
+  }
+
   const menuItems = [
     {
       icon: "truck",
       title: "My Orders",
       description: "Track, return, or buy things again",
-      onClick: () => router.push("/orders"),
+      onClick: () => router.push("/autopartsmarketplace/orders"),
       badge: "4",
     },
     {
       icon: "heart",
       title: "My Wishlist",
       description: "Products you have saved",
-      onClick: () => router.push("/favorites"),
+      onClick: () => router.push("/autopartsmarketplace/favorites"),
       badge: "12",
     },
     {
       icon: "settings",
       title: "Account Settings",
       description: "Address, payment methods, and more",
-      onClick: () => router.push("/settings"),
-    },
-    {
-      icon: "bell",
-      title: "Notifications",
-      description: "Manage your notification preferences",
-      onClick: () => router.push("/notifications"),
-      badge: "2",
-    },
-    {
-      icon: "help",
-      title: "Help & Support",
-      description: "FAQs, contact support",
-      onClick: () => router.push("/support"),
+      onClick: () => openAddressModal(false), 
     },
   ]
 
@@ -122,6 +217,143 @@ export default function ProfilePage() {
             </Card>
           ))}
         </div>
+
+        {/* Address Modal */}
+        {showAddressModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-md">
+              <CardContent className="p-6">
+                <h2 className="text-lg font-medium mb-4">{isEdit ? "Edit Address" : "Add Address"}</h2>
+                {addressError && (
+                  <p className="text-red-400 mb-4">{addressError}</p>
+                )}
+                {cartMessage && (
+                  <p className="text-green-400 mb-4">{cartMessage}</p>
+                )}
+                <form onSubmit={handleAddressSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium">Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border rounded bg-slate-800 text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium">Address Line 1</label>
+                    <input
+                      type="text"
+                      name="addressLine1"
+                      value={formData.addressLine1}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border rounded bg-slate-800 text-white"
+                      required
+                    />
+                  </div>
+                  {!isEdit && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium">Address Line 2</label>
+                        <input
+                          type="text"
+                          name="addressLine2"
+                          value={formData.addressLine2}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded bg-slate-800 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Road</label>
+                        <input
+                          type="text"
+                          name="road"
+                          value={formData.road}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded bg-slate-800 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Mobile</label>
+                        <input
+                          type="text"
+                          name="mobile"
+                          value={formData.mobile}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded bg-slate-800 text-white"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Label</label>
+                        <input
+                          type="text"
+                          name="label"
+                          value={formData.label}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded bg-slate-800 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Latitude</label>
+                        <input
+                          type="text"
+                          name="latitude"
+                          value={formData.latitude}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded bg-slate-800 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">Longitude</label>
+                        <input
+                          type="text"
+                          name="longitude"
+                          value={formData.longitude}
+                          onChange={handleInputChange}
+                          className="w-full p-2 border rounded bg-slate-800 text-white"
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium">Landmark</label>
+                    <input
+                      type="text"
+                      name="landmark"
+                      value={formData.landmark}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border rounded bg-slate-800 text-white"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="defaultAddress"
+                      checked={formData.defaultAddress}
+                      onChange={handleInputChange}
+                      className="mr-2"
+                    />
+                    <label className="text-sm font-medium">Set as Default Address</label>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAddressModal(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit">
+                      {isEdit ? "Update Address" : "Add Address"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Logout Button */}
         <div className="mt-6">

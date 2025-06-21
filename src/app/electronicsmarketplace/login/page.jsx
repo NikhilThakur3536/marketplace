@@ -115,11 +115,11 @@ export default function TestLogin() {
             {isLoading ? "Logging in..." : "Submit"}
           </motion.button>
         </form>
-        <div className="flex gap-1 absolute bottom-12 w-full justify-center">
+        <div className="z-40 flex gap-1 absolute bottom-12 w-full justify-center">
           <p>Don't have an account?</p>
-          <span className="text-green-400 font-bold cursor-pointer" onClick={() => router.push("/electronicsmarketplace/register")}>
+          <button className="text-green-400 font-bold cursor-pointer w-fit h-fit" onClick={() => { console.log("buttonclicked"); router.push("/electronicsmarketplace/register")}}>
             Sign Up
-          </span>
+          </button>
         </div>    
       </div>
     </div>

@@ -77,7 +77,7 @@ export default function Test() {
     const fetchCartItems = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem("token") || "eyJhbGciOiJIUzI1NiJ9.MjllY2M3ZTYtODgxZi00MjRlLWFkZTMtMWI3ZGQ0MGRmZDVh.rqAF7Mz2liJ3WriJpabV29ndeDkiCjkfLfDrg-iFXvg";
+        const token = localStorage.getItem("userToken");
         if (!token) {
           throw new Error("No authentication token found. Please log in.");
         }
@@ -151,7 +151,7 @@ export default function Test() {
 
       try {
         setCouponLoading(true);
-        const token = localStorage.getItem("token") || "eyJhbGciOiJIUzI1NiJ9.MjllY2M3ZTYtODgxZi00MjRlLWFkZTMtMWI3ZGQ0MGRmZDVh.rqAF7Mz2liJ3WriJpabV29ndeDkiCjkfLfDrg-iFXvg";
+        const token = localStorage.getItem("userToken");
         console.log("Fetching coupons with subtotal:", subtotal);
 
         const response = await axios.post(
@@ -222,7 +222,7 @@ export default function Test() {
 
   const updateQuantity = async (id, change) => {
     try {
-      const token = localStorage.getItem("token") || "eyJhbGciOiJIUzI1NiJ9.MjllY2M3ZTYtODgxZi00MjRlLWFkZTMtMWI3ZGQ0MGRmZDVh.rqAF7Mz2liJ3WriJpabV29ndeDkiCjkfLfDrg-iFXvg";
+      const token = localStorage.getItem("userToken");
       if (!token) {
         throw new Error("No authentication token found. Please log in.");
       }
@@ -277,7 +277,7 @@ export default function Test() {
 
   const removeItem = async (id) => {
     try {
-      const token = localStorage.getItem("token") || "eyJhbGciOiJIUzI1NiJ9.MjllY2M3ZTYtODgxZi00MjRlLWFkZTMtMWI3ZGQ0MGRmZDVh.rqAF7Mz2liJ3WriJpabV29ndeDkiCjkfLfDrg-iFXvg";
+      const token = localStorage.getItem("userToken");
       if (!token) {
         throw new Error("No authentication token found. Please log in.");
       }
@@ -349,7 +349,7 @@ export default function Test() {
 
   const handleCheckout = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userToken");
       if (!token) {
         throw new Error("No authentication token found. Please log in.");
       }
@@ -365,7 +365,7 @@ export default function Test() {
         subTotal: subtotal.toFixed(2),
         paymentType: "CASH",
         orderType: "PICKUP",
-        couponCode: selectedCoupon ? selectedCoupon.id : "hyy",
+        couponCode: selectedCoupon ?selectedCoupon:"null",
         couponAmount: couponDiscount.toFixed(2),
       };
 
