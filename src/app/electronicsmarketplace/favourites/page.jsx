@@ -19,7 +19,7 @@ const Favorites = () => {
       const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
       if (!token) {
         if (typeof window !== 'undefined') {
-          localStorage.setItem('redirectUrl', '/foodmarketplace/favorites');
+          localStorage.setItem('redirectUrl', '/electronicsmarketplace/favorites');
         }
         setShowPopup({
           type: 'error',
@@ -27,7 +27,7 @@ const Favorites = () => {
         });
         setTimeout(() => {
           setShowPopup(null);
-          router.push('/foodmarketplace/login');
+          router.push('/electronicsmarketplace/login');
         }, 2000);
         setLoading(false);
         return;
@@ -54,7 +54,7 @@ const Favorites = () => {
             description: item.varients?.[0]?.varientLanguages?.[0]?.name || item.description || 'No description',
             image: item.image || '/placeholder.jpg',
             quantity: 1,
-            variantUomId: item.varients?.[0]?.id || null, // Added for cart functionality
+            variantUomId: item.varients?.[0]?.id || null, 
           }));
           setFavoriteItems(items);
         } else {
@@ -94,7 +94,7 @@ const Favorites = () => {
       });
       setTimeout(() => {
         setShowPopup(null);
-        router.push('/foodmarketplace/login');
+        router.push('/electronicsmarketplace/login');
       }, 2000);
       return;
     }
@@ -142,7 +142,7 @@ const Favorites = () => {
           </div>
         )}
         <div className="bg-green-600 text-white p-6">
-          <div className="flex items-center gap-4 mb-6" onClick={() => router.push('/foodmarketplace')}>
+          <div className="flex items-center gap-4 mb-6" onClick={() => router.push('/electronicsmarketplace')}>
             <ArrowLeft className="cursor-pointer" size={24} />
             <h1 className="text-2xl font-bold">My Favorites</h1>
           </div>

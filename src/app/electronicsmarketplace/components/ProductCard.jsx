@@ -105,7 +105,7 @@ const ProductCard = ({ product }) => {
         <h3 className="font-semibold bg-gradient-to-r from-blue-500 via-violet-600 to-orange-500 bg-clip-text text-transparent line-clamp-1">
           {product.name}
         </h3>
-        <p className="text-xs text-gray-500">{product.specs}</p>
+        <p className="text-xs text-gray-500 line-clamp-3 font-medium">{product.specs}</p>
         {typeof product.price === "number" && (
           <p className="font-bold text-gray-900 mt-2">₹{product.price.toLocaleString()}</p>
         )}

@@ -365,7 +365,7 @@ export default function Test() {
         subTotal: subtotal.toFixed(2),
         paymentType: "CASH",
         orderType: "PICKUP",
-        couponCode: selectedCoupon ?selectedCoupon:"null",
+        couponCode: selectedCoupon ?selectedCoupon.id:"null",
         couponAmount: couponDiscount.toFixed(2),
       };
 

@@ -1,21 +1,19 @@
-"use client"
+"use clietn"
 
-import React, { useState, useRef, useEffect } from "react";
-import axios from "axios";
+import { useState,useRef,useEffect } from "react";
 
-const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80fdd9ba3", customerId = "4b0f3e8c-6715-46bb-ae71-87279a38ed76" }) => {
+export default function  ChatInterface ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80fdd9ba3", customerId = "4b0f3e8c-6715-46bb-ae71-87279a38ed76" }) {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [chatId, setChatId] = useState(null);
   const [token, setToken] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef(null);
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Retrieve token and set Axios headers
   useEffect(() => {
     const userToken = localStorage.getItem("userToken");
     if (userToken) {
@@ -26,18 +24,15 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
     }
   }, []);
 
-  // Fetch chat list and select or create chat
   const initializeChat = async () => {
     if (!token) {
       console.error("Cannot initialize chat: No user token available");
       return;
     }
     try {
-      // Fetch chat list
       const response = await axios.get(`${BASE_URL}/user/chat/list`);
       if (response.data.success) {
         const chats = response.data.data;
-        // Find a chat with matching participantId and customerId
         const existingChat = chats.find(
           (chat) =>
             chat.participantId === participantId &&
@@ -47,18 +42,15 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
         if (existingChat) {
           setChatId(existingChat.id);
         } else {
-          // Create a new chat if no matching chat is found
           await createChat();
         }
       }
     } catch (error) {
       console.error("Error fetching chat list:", error);
-      // Fallback to creating a new chat
       await createChat();
     }
   };
 
-  // Create a new chat session
   const createChat = async () => {
     if (!token) {
       console.error("Cannot create chat: No user token available");
@@ -78,7 +70,6 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
     }
   };
 
-  // Fetch messages for the chat
   const fetchMessages = async () => {
     if (!chatId || !token) {
       console.error("Cannot fetch messages: Missing chatId or token");
@@ -93,7 +84,7 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
           sender: msg.senderId === customerId ? "user" : "ai",
           timestamp: new Date(msg.createdAt).toLocaleTimeString("en-US", {
             hour: "2-digit",
-            minute: " Rosalia 2025-11-03 13:03:23 -0700",
+            minute: "2-digit",
             hour12: false,
           }),
           attachments: msg.attachments || [],
@@ -105,13 +96,11 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
     }
   };
 
-  // Send a message
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !chatId || !token) {
       console.error("Cannot send message: Missing input, chatId, or token");
       return;
     }
-
     try {
       const newMessage = {
         messageText: inputValue,
@@ -141,7 +130,6 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
     }
   };
 
-  // Delete a message
   const handleDeleteMessage = async (messageId) => {
     if (!token) {
       console.error("Cannot delete message: No user token available");
@@ -185,47 +173,54 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
   }, [messages]);
 
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden w-80">
+    <div
+      className={`bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-300 ease-in-out ${
+        isExpanded ? "w-[600px] max-h-[80vh]" : "w-80 max-h-[500px]"
+      }`}
+    >
       {/* Header */}
-      <div className="bg-gradient-to-r from-green-500 to-green-400 px-3 py-2 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-green-600 to-green-400 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+            <MessageCircle className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-white font-semibold text-base">AI Assistant</h3>
+            <p className="text-white text-opacity-90 text-xs">Online</p>
+          </div>
+        </div>
         <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-            <svg
-              className="w-4 h-4 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-white hover:text-opacity-80 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                d={isExpanded ? "M6 18L18 6M6 6l12 12" : "M4 8V4m0 0h4M4 16v4m0-4h4m12-12v4m0-4h-4m12 12v-4m0 4h-4"}
               />
             </svg>
-          </div>
-          <div>
-            <h3 className="text-white font-medium text-sm">AI Assistant</h3>
-            <p className="text-white text-opacity-90 text-xs">Online</p>
-          </div>
+          </button>
+          <button
+            onClick={onClose}
+            className="text-white hover:text-opacity-80 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          className="text-white hover:text-opacity-80 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M20 12H4"
-            />
-          </svg>
-        </button>
       </div>
 
       {/* Messages Area */}
-      <div className="h-64 overflow-y-auto bg-gray-50 p-3 space-y-3">
+      <div className={`overflow-y-auto bg-gray-50 p-4 space-y-4 ${isExpanded ? "h-[60vh]" : "h-64"}`}>
         {messages.map((message) => (
           <div key={message.id} className="flex flex-col">
             <div
@@ -234,15 +229,15 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
               } items-start`}
             >
               {message.sender === "ai" && (
-                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1">
-                  <span className="text-white font-semibold text-xs">AI</span>
+                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-1">
+                  <span className="text-white font-semibold text-sm">AI</span>
                 </div>
               )}
               <div
-                className={`max-w-48 px-3 py-2 rounded-lg text-xs ${
+                className={`max-w-[70%] px-4 py-2 rounded-lg text-sm ${
                   message.sender === "user"
                     ? "bg-green-500 text-white rounded-br-none"
-                    : "bg-white text-gray-800 rounded-bl-none shadow-sm border"
+                    : "bg-white text-gray-800 rounded-bl-none shadow-md border border-gray-200"
                 } ${message.isDeleted ? "opacity-50 italic" : ""}`}
               >
                 <p>{message.text}</p>
@@ -264,7 +259,7 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
                 {message.sender === "user" && !message.isDeleted && (
                   <button
                     onClick={() => handleDeleteMessage(message.id)}
-                    className="text-red-500 text-xs mt-1 hover:underline"
+                    className="text-red-500 text-xs mt-2 hover:underline"
                   >
                     Delete
                   </button>
@@ -273,7 +268,7 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
             </div>
             <div
               className={`text-xs text-gray-500 mt-1 ${
-                message.sender === "user" ? "text-right mr-2" : "text-left ml-8"
+                message.sender === "user" ? "text-right mr-3" : "text-left ml-11"
               }`}
             >
               {message.timestamp}
@@ -284,10 +279,10 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
       </div>
 
       {/* Input Area */}
-      <div className="bg-white border-t border-gray-200 p-3">
-        <div className="flex items-center space-x-2">
+      <div className="bg-white border-t border-gray-200 p-4">
+        <div className="flex items-center space-x-3">
           <button className="text-gray-400 hover:text-gray-600 transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -296,7 +291,6 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
               />
             </svg>
           </button>
-
           <div className="flex-1 relative">
             <input
               type="text"
@@ -304,16 +298,15 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type your message"
-              className="w-full px-3 py-1.5 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs"
+              className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
             />
           </div>
-
           <button
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || !chatId || !token}
-            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full p-1.5 transition-colors"
+            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-full p-2 transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -327,5 +320,3 @@ const ChatInterface = ({ onClose, participantId = "d7a34198-0efb-4f93-968c-3ce80
     </div>
   );
 };
-
-export default ChatInterface;

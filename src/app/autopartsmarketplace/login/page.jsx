@@ -63,26 +63,18 @@ export default function TestLogin() {
   return (
     <div className="w-screen flex justify-center h-screen">
       <div className="relative max-w-md w-full bg-gray-200 h-screen overflow-hidden">
-        <svg
-          width="400"
-          height="198"
-          viewBox="0 0 416 198"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="absolute -bottom-4 -right-24 z-10"
-        >
-          <circle cx="270.5" cy="270.5" r="270.5" fill="#202020" />
-        </svg>
-        <svg
-          width="768"
-          height="377"
-          viewBox="0 0 768 377"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="absolute -bottom-32 right-0 z-[5]"
-        >
-          <ellipse cx="417.5" cy="423" rx="449.5" ry="423" fill="black" />
-        </svg>
+        <motion.div initial>
+            <svg
+            width="768"
+            height="377"
+            viewBox="0 0 768 377"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="absolute -bottom-32 right-0 z-[5]"
+            >
+            <ellipse cx="417.5" cy="423" rx="449.5" ry="423" fill="black" />
+            </svg>
+        </motion.div>    
         <svg
           width="392"
           height="402"
