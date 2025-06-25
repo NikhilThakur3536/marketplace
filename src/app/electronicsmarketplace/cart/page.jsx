@@ -79,7 +79,8 @@ export default function Test() {
         setLoading(true);
         const token = localStorage.getItem("userToken");
         if (!token) {
-          throw new Error("No authentication token found. Please log in.");
+          router.push("/electronicsmarketplace/login")
+          throw new Error("No authentication token found. Please log in.")
         }
 
         console.log("Fetching cart items from:", `${BASE_URL}/user/cart/listv2`);

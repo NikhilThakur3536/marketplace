@@ -16,17 +16,18 @@ export default function HomePage() {
   const [products, setProducts] = useState([]);
   const [showPopup, setShowPopup] = useState(null);
   const [brands, setBrands] = useState([]);
-  const [selectedBrandId, setSelectedBrandId] = useState(null);
+  const [models, setModels] = useState([]);
+  const [selectedBrandId, setSelectedBrandId] = useState(null); // Stores brand name
+  const [selectedModelId, setSelectedModelId] = useState(null); // Stores model name
   const [searchTerm, setSearchTerm] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [brandSlideIndex, setBrandSlideIndex] = useState(0);
+  const [modelSlideIndex, setModelSlideIndex] = useState(0);
 
-  const categories = [
-    { name: "Brake", icon: "🛞", color: "bg-blue-600" },
-    { name: "Engine", icon: "⚙️", color: "bg-green-600" },
-    { name: "Suspension", icon: "🔧", color: "bg-purple-600" },
-  ];
+  const itemsPerSlide = 6; // 2 rows x 3 columns
 
   const fetchData = useCallback(
-    debounce(async (search, brandId) => {
+    debounce(async (search, brandName, modelName, currentBrands) => {
       try {
         const token = localStorage.getItem("token");
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -35,26 +36,38 @@ export default function HomePage() {
           return;
         }
 
-        // Fetch manufacturers
-        const manufacturerResponse = await axios.post(
-          `${BASE_URL}/user/manufacturer/list`,
-          {
-            limit: 10,
-            offset: 0,
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        console.log("Manufacturer List Response:", manufacturerResponse.data);
+        // Fetch manufacturers if not already loaded
+        if (currentBrands.length === 0) {
+          const manufacturerResponse = await axios.post(
+            `${BASE_URL}/user/manufacturer/list`,
+            { limit: 10, offset: 0 },
+            { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+          );
 
-        if (manufacturerResponse.data?.success && manufacturerResponse.data?.data?.length > 0) {
-          setBrands(manufacturerResponse.data.data);
+          if (manufacturerResponse.data?.success && manufacturerResponse.data?.data?.length > 0) {
+            setBrands(manufacturerResponse.data.data);
+          } else {
+            console.log("No manufacturers found");
+          }
+        }
+
+        // Fetch models if a brand is selected
+        if (brandName) {
+          const brand = currentBrands.find((b) => b.name === brandName);
+          const modelResponse = await axios.post(
+            `${BASE_URL}/user/productModel/list`,
+            { limit: 10, offset: 0, manufacturedId: brand?.id },
+            { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+          );
+
+          if (modelResponse.data?.success && modelResponse.data?.data?.length > 0) {
+            setModels(modelResponse.data.data);
+          } else {
+            console.log("No models found for selected brand");
+            setModels([]);
+          }
         } else {
-          console.log("No manufacturers found");
+          setModels([]);
         }
 
         // Fetch products
@@ -65,21 +78,17 @@ export default function HomePage() {
         };
         if (search) {
           productPayload.searchKey = search;
-        } else if (brandId) {
-          productPayload.searchKey= brandId;
+        } else if (modelName) {
+          productPayload.searchKey = modelName; // Prioritize model name
+        } else if (brandName) {
+          productPayload.searchKey = brandName; // Fallback to brand name
         }
 
         const productResponse = await axios.post(
           `${BASE_URL}/user/product/listv2`,
           productPayload,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
         );
-        // console.log("Product List Response:", productResponse.data);
 
         if (productResponse.data?.success && productResponse.data?.data?.rows?.length > 0) {
           const apiProducts = productResponse.data.data.rows.map((product) => {
@@ -120,17 +129,28 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    fetchData(searchTerm, selectedBrandId);
-  }, [searchTerm, selectedBrandId, fetchData]);
+    // Fetch brands and all products on initial load, and when filters change
+    fetchData(searchTerm, selectedBrandId, selectedModelId, brands);
+  }, [searchTerm, selectedBrandId, selectedModelId, brands, fetchData]);
 
-  const handleBrandClick = (manufacturerId) => {
-    setSelectedBrandId(manufacturerId);
-    setSearchTerm(""); 
+  const handleBrandClick = (brandName) => {
+    setSelectedBrandId(brandName);
+    setSelectedModelId(null);
+    setSearchTerm("");
+    setModelSlideIndex(0); // Reset model carousel
+  };
+
+  const handleModelClick = (modelName) => {
+    setSelectedModelId(modelName);
+    setSearchTerm("");
   };
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
-    setSelectedBrandId(null); // Clear brand selection when searching
+    setSelectedBrandId(null);
+    setSelectedModelId(null);
+    setBrandSlideIndex(0); // Reset brand carousel
+    setModelSlideIndex(0); // Reset model carousel
   };
 
   const toggleFavorite = async (e, product) => {
@@ -154,27 +174,18 @@ export default function HomePage() {
     }
 
     const newFavoriteState = !product.isFavorite;
-    const endpoint = newFavoriteState
-      ? "/user/favoriteProduct/add"
-      : "/user/favoriteProduct/remove";
+    const endpoint = newFavoriteState ? "/user/favoriteProduct/add" : "/user/favoriteProduct/remove";
     const action = newFavoriteState ? "added to" : "removed from";
 
     try {
       await axios.post(
         `${BASE_URL}${endpoint}`,
         { productId: product.id },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
       );
 
       setProducts((prevProducts) =>
-        prevProducts.map((p) =>
-          p.id === product.id ? { ...p, isFavorite: newFavoriteState } : p
-        )
+        prevProducts.map((p) => (p.id === product.id ? { ...p, isFavorite: newFavoriteState } : p))
       );
 
       setShowPopup({
@@ -192,6 +203,32 @@ export default function HomePage() {
     }
   };
 
+  const toggleFilter = () => {
+    setIsFilterOpen(!isFilterOpen);
+  };
+
+  // Carousel navigation for brands
+  const handleBrandPrev = () => {
+    setBrandSlideIndex((prev) => Math.max(prev - itemsPerSlide, 0));
+  };
+
+  const handleBrandNext = () => {
+    setBrandSlideIndex((prev) =>
+      Math.min(prev + itemsPerSlide, Math.ceil(brands.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide)
+    );
+  };
+
+  // Carousel navigation for models
+  const handleModelPrev = () => {
+    setModelSlideIndex((prev) => Math.max(prev - itemsPerSlide, 0));
+  };
+
+  const handleModelNext = () => {
+    setModelSlideIndex((prev) =>
+      Math.min(prev + itemsPerSlide, Math.ceil(models.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide)
+    );
+  };
+
   return (
     <Layout>
       <div className="p-4">
@@ -206,7 +243,11 @@ export default function HomePage() {
         )}
 
         <div className="relative mb-6">
-          <Icon name="search" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+          <Icon
+            name="search"
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+            size={16}
+          />
           <Input
             placeholder="Search by item or brand"
             className="pl-10"
@@ -215,56 +256,15 @@ export default function HomePage() {
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          {categories.map((category) => (
-            <div
-              key={category.name}
-              className={`${category.color} rounded-lg p-4 text-center cursor-pointer`}
-              onClick={() => router.push(`/category/${category.name.toLowerCase()}`)}
-            >
-              <div className="text-2xl mb-2">{category.icon}</div>
-              <div className="text-white font-medium text-sm">{category.name} Parts</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Search by Brands</h2>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {brands.map((brand) => (
-              <Button
-                key={brand.id}
-                variant="outline"
-                className={`bg-slate-700 border-slate-600 text-white hover:bg-slate-600 h-12 ${
-                  selectedBrandId === brand.name ? "bg-blue-600 border-blue-600" : ""
-                }`}
-                onClick={() => handleBrandClick(brand.name)}
-              >
-                {brand.name}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full inline-block mb-2">
-                Flash Sale
-              </div>
-              <div className="text-2xl font-bold text-white">50% OFF</div>
-              <div className="text-white/90 text-sm">First time buyers</div>
-              <div className="text-white/80 text-xs mt-1">⏰ 12 hours left</div>
-            </div>
-            <div className="text-4xl">🏷️</div>
-          </div>
-        </div>
-
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-white">
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-slate-700 border-slate-600 text-white"
+              onClick={toggleFilter}
+              aria-expanded={isFilterOpen}
+            >
               <Icon name="filter" size={14} className="mr-2" />
               Filter
             </Button>
@@ -285,6 +285,161 @@ export default function HomePage() {
             </button>
           </div>
         </div>
+
+        {/* Filter Panel */}
+        <div
+          className={`fixed top-0 left-0 h-full bg-slate-800 max-w-md w-full z-50 transform ${
+            isFilterOpen ? "translate-x-0" : "-translate-x-full"
+          } transition-transform duration-300 ease-in-out overflow-y-auto`}
+          aria-hidden={!isFilterOpen}
+        >
+          <div className="p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-white">Filters</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white"
+                onClick={toggleFilter}
+                aria-label="Close filter panel"
+              >
+                <Icon name="x" size={16} />
+              </Button>
+            </div>
+
+            {/* Title and Brand Section */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-white mb-2">Title and Brand</h3>
+              <div className="w-full p-2 bg-slate-700 rounded-lg">
+                <div className="relative">
+                  <div className="grid grid-rows-2 grid-cols-3 gap-2">
+                    {brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).map((brand) => (
+                      <Button
+                        key={brand.id}
+                        variant="outline"
+                        className={`bg-slate-700 border-slate-600 text-white hover:bg-slate-600 h-10 text-ellipsis overflow-hidden whitespace-nowrap ${
+                          selectedBrandId === brand.name ? "bg-blue-600 border-blue-600" : ""
+                        }`}
+                        onClick={() => handleBrandClick(brand.name)}
+                      >
+                        {brand.name}
+                      </Button>
+                    ))}
+                    {brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length < itemsPerSlide &&
+                      Array(itemsPerSlide - brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length)
+                        .fill()
+                        .map((_, index) => (
+                          <div key={`empty-brand-${index}`} className="h-10"></div>
+                        ))}
+                  </div>
+                  {brands.length > itemsPerSlide && (
+                    <div className="flex justify-between mt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="bg-slate-700 text-white hover:bg-slate-600"
+                        onClick={handleBrandPrev}
+                        disabled={brandSlideIndex === 0}
+                        aria-label="Previous brands"
+                      >
+                        <Icon name="chevron-left" size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="bg-slate-700 text-white hover:bg-slate-600"
+                        onClick={handleBrandNext}
+                        disabled={brandSlideIndex >= Math.ceil(brands.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide}
+                        aria-label="Next brands"
+                      >
+                        <Icon name="chevron-right" size={16} />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Model Section */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-white mb-2">Model</h3>
+              {selectedBrandId ? (
+                models.length > 0 ? (
+                  <div className="w-full p-2 bg-slate-700 rounded-lg">
+                    <div className="relative">
+                      <div className="grid grid-rows-2 grid-cols-3 gap-2">
+                        {models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).map((model) => (
+                          <Button
+                            key={model.id}
+                            variant="outline"
+                            className={`bg-slate-700 border-slate-600 text-white hover:bg-slate-600 h-10 text-ellipsis overflow-hidden whitespace-nowrap ${
+                              selectedModelId === model.name ? "bg-blue-600 border-blue-600" : ""
+                            }`}
+                            onClick={() => handleModelClick(model.name)}
+                          >
+                            {model.name}
+                          </Button>
+                        ))}
+                        {models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).length < itemsPerSlide &&
+                          Array(itemsPerSlide - models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).length)
+                            .fill()
+                            .map((_, index) => (
+                              <div key={`empty-model-${index}`} className="h-10"></div>
+                            ))}
+                      </div>
+                      {models.length > itemsPerSlide && (
+                        <div className="flex justify-between mt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="bg-slate-700 text-white hover:bg-slate-600"
+                            onClick={handleModelPrev}
+                            disabled={modelSlideIndex === 0}
+                            aria-label="Previous models"
+                          >
+                            <Icon name="chevron-left" size={16} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="bg-slate-700 text-white hover:bg-slate-600"
+                            onClick={handleModelNext}
+                            disabled={modelSlideIndex >= Math.ceil(models.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide}
+                            aria-label="Next models"
+                          >
+                            <Icon name="chevron-right" size={16} />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-gray-300 text-sm">No models available</div>
+                )
+              ) : (
+                <div className="text-gray-300 text-sm">Select a brand first</div>
+              )}
+            </div>
+
+            {/* Additional Filter Sections (Placeholder) */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-white mb-2">Price Range</h3>
+              <div className="text-gray-300 text-sm">Coming soon...</div>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-white mb-2">Category</h3>
+              <div className="text-gray-300 text-sm">Coming soon...</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Overlay when filter is open */}
+        {isFilterOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={toggleFilter}
+          ></div>
+        )}
 
         <div className={`grid gap-4 ${viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"}`}>
           {products.map((product) => (
