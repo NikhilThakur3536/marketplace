@@ -23,11 +23,13 @@ export default function HomePage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [brandSlideIndex, setBrandSlideIndex] = useState(0);
   const [modelSlideIndex, setModelSlideIndex] = useState(0);
+  const [yearStart, setYearStart] = useState(null);
+  const [yearEnd, setYearEnd] = useState(null);
 
   const itemsPerSlide = 6; // 2 rows x 3 columns
 
   const fetchData = useCallback(
-    debounce(async (search, brandName, modelName, currentBrands) => {
+    debounce(async (search, brandName, modelName, yearStart, yearEnd, currentBrands) => {
       try {
         const token = localStorage.getItem("token");
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -54,16 +56,31 @@ export default function HomePage() {
         // Fetch models if a brand is selected
         if (brandName) {
           const brand = currentBrands.find((b) => b.name === brandName);
+          const modelPayload = {
+            limit: 10,
+            offset: 0,
+            manufacturedId: brand?.id,
+          };
+          if (search && !modelName) {
+            modelPayload.name = search; // Search by model name
+          }
+          if (yearStart) {
+            modelPayload.yearStart = parseInt(yearStart);
+          }
+          if (yearEnd) {
+            modelPayload.yearEnd = parseInt(yearEnd);
+          }
+
           const modelResponse = await axios.post(
             `${BASE_URL}/user/productModel/list`,
-            { limit: 10, offset: 0, manufacturedId: brand?.id },
+            modelPayload,
             { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
           );
 
           if (modelResponse.data?.success && modelResponse.data?.data?.length > 0) {
             setModels(modelResponse.data.data);
           } else {
-            console.log("No models found for selected brand");
+            console.log("No models found for selected brand or filters");
             setModels([]);
           }
         } else {
@@ -76,8 +93,8 @@ export default function HomePage() {
           offset: 0,
           languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
         };
-        if (search) {
-          productPayload.searchKey = search;
+        if (search && !modelName && !brandName) {
+          productPayload.searchKey = search; // General search
         } else if (modelName) {
           productPayload.searchKey = modelName; // Prioritize model name
         } else if (brandName) {
@@ -129,15 +146,32 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    // Fetch brands and all products on initial load, and when filters change
-    fetchData(searchTerm, selectedBrandId, selectedModelId, brands);
-  }, [searchTerm, selectedBrandId, selectedModelId, brands, fetchData]);
+    fetchData(searchTerm, selectedBrandId, selectedModelId, yearStart, yearEnd, brands);
+  }, [searchTerm, selectedBrandId, selectedModelId, yearStart, yearEnd, brands, fetchData]);
+
+  const handleYearChange = (type, value) => {
+    const year = value ? parseInt(value) : null;
+    const currentYear = new Date().getFullYear() + 1;
+    if (year && (year < 1900 || year > currentYear)) {
+      setShowPopup({
+        type: "error",
+        message: `Please enter a valid year between 1900 and ${currentYear}.`,
+      });
+      setTimeout(() => setShowPopup(null), 3000);
+      return;
+    }
+    if (type === "start") {
+      setYearStart(year);
+    } else {
+      setYearEnd(year);
+    }
+  };
 
   const handleBrandClick = (brandName) => {
     setSelectedBrandId(brandName);
     setSelectedModelId(null);
     setSearchTerm("");
-    setModelSlideIndex(0); // Reset model carousel
+    setModelSlideIndex(0);
   };
 
   const handleModelClick = (modelName) => {
@@ -149,8 +183,10 @@ export default function HomePage() {
     setSearchTerm(e.target.value);
     setSelectedBrandId(null);
     setSelectedModelId(null);
-    setBrandSlideIndex(0); // Reset brand carousel
-    setModelSlideIndex(0); // Reset model carousel
+    setYearStart(null);
+    setYearEnd(null);
+    setBrandSlideIndex(0);
+    setModelSlideIndex(0);
   };
 
   const toggleFavorite = async (e, product) => {
@@ -207,7 +243,6 @@ export default function HomePage() {
     setIsFilterOpen(!isFilterOpen);
   };
 
-  // Carousel navigation for brands
   const handleBrandPrev = () => {
     setBrandSlideIndex((prev) => Math.max(prev - itemsPerSlide, 0));
   };
@@ -218,7 +253,6 @@ export default function HomePage() {
     );
   };
 
-  // Carousel navigation for models
   const handleModelPrev = () => {
     setModelSlideIndex((prev) => Math.max(prev - itemsPerSlide, 0));
   };
@@ -286,116 +320,64 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Filter Panel */}
-        <div
-          className={`fixed top-0 left-0 h-full bg-slate-800 max-w-md w-full z-50 transform ${
-            isFilterOpen ? "translate-x-0" : "-translate-x-full"
-          } transition-transform duration-300 ease-in-out overflow-y-auto`}
-          aria-hidden={!isFilterOpen}
-        >
-          <div className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-white">Filters</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-white"
-                onClick={toggleFilter}
-                aria-label="Close filter panel"
-              >
-                <Icon name="x" size={16} />
-              </Button>
-            </div>
-
-            {/* Title and Brand Section */}
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-white mb-2">Title and Brand</h3>
-              <div className="w-full p-2 bg-slate-700 rounded-lg">
-                <div className="relative">
-                  <div className="grid grid-rows-2 grid-cols-3 gap-2">
-                    {brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).map((brand) => (
-                      <Button
-                        key={brand.id}
-                        variant="outline"
-                        className={`bg-slate-700 border-slate-600 text-white hover:bg-slate-600 h-10 text-ellipsis overflow-hidden whitespace-nowrap ${
-                          selectedBrandId === brand.name ? "bg-blue-600 border-blue-600" : ""
-                        }`}
-                        onClick={() => handleBrandClick(brand.name)}
-                      >
-                        {brand.name}
-                      </Button>
-                    ))}
-                    {brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length < itemsPerSlide &&
-                      Array(itemsPerSlide - brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length)
-                        .fill()
-                        .map((_, index) => (
-                          <div key={`empty-brand-${index}`} className="h-10"></div>
-                        ))}
-                  </div>
-                  {brands.length > itemsPerSlide && (
-                    <div className="flex justify-between mt-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="bg-slate-700 text-white hover:bg-slate-600"
-                        onClick={handleBrandPrev}
-                        disabled={brandSlideIndex === 0}
-                        aria-label="Previous brands"
-                      >
-                        <Icon name="chevron-left" size={16} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="bg-slate-700 text-white hover:bg-slate-600"
-                        onClick={handleBrandNext}
-                        disabled={brandSlideIndex >= Math.ceil(brands.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide}
-                        aria-label="Next brands"
-                      >
-                        <Icon name="chevron-right" size={16} />
-                      </Button>
-                    </div>
-                  )}
+        {isFilterOpen && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={toggleFilter}
+              aria-hidden="true"
+            ></div>
+            <div
+              className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-md w-full bg-slate-800 rounded-lg z-50 overflow-y-auto max-h-[80vh]"
+              aria-hidden={!isFilterOpen}
+            >
+              <div className="p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold text-white">Filters</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white"
+                    onClick={toggleFilter}
+                    aria-label="Close filter popup"
+                  >
+                    <Icon name="x" size={16} />
+                  </Button>
                 </div>
-              </div>
-            </div>
 
-            {/* Model Section */}
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-white mb-2">Model</h3>
-              {selectedBrandId ? (
-                models.length > 0 ? (
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-white mb-2">Title and Brand</h3>
                   <div className="w-full p-2 bg-slate-700 rounded-lg">
                     <div className="relative">
                       <div className="grid grid-rows-2 grid-cols-3 gap-2">
-                        {models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).map((model) => (
+                        {brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).map((brand) => (
                           <Button
-                            key={model.id}
+                            key={brand.id}
                             variant="outline"
                             className={`bg-slate-700 border-slate-600 text-white hover:bg-slate-600 h-10 text-ellipsis overflow-hidden whitespace-nowrap ${
-                              selectedModelId === model.name ? "bg-blue-600 border-blue-600" : ""
+                              selectedBrandId === brand.name ? "bg-blue-600 border-blue-600" : ""
                             }`}
-                            onClick={() => handleModelClick(model.name)}
+                            onClick={() => handleBrandClick(brand.name)}
                           >
-                            {model.name}
+                            {brand.name}
                           </Button>
                         ))}
-                        {models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).length < itemsPerSlide &&
-                          Array(itemsPerSlide - models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).length)
+                        {brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length < itemsPerSlide &&
+                          Array(itemsPerSlide - brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length)
                             .fill()
                             .map((_, index) => (
-                              <div key={`empty-model-${index}`} className="h-10"></div>
+                              <div key={`empty-brand-${index}`} className="h-10"></div>
                             ))}
                       </div>
-                      {models.length > itemsPerSlide && (
+                      {brands.length > itemsPerSlide && (
                         <div className="flex justify-between mt-2">
                           <Button
                             variant="ghost"
                             size="sm"
                             className="bg-slate-700 text-white hover:bg-slate-600"
-                            onClick={handleModelPrev}
-                            disabled={modelSlideIndex === 0}
-                            aria-label="Previous models"
+                            onClick={handleBrandPrev}
+                            disabled={brandSlideIndex === 0}
+                            aria-label="Previous brands"
                           >
                             <Icon name="chevron-left" size={16} />
                           </Button>
@@ -403,9 +385,9 @@ export default function HomePage() {
                             variant="ghost"
                             size="sm"
                             className="bg-slate-700 text-white hover:bg-slate-600"
-                            onClick={handleModelNext}
-                            disabled={modelSlideIndex >= Math.ceil(models.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide}
-                            aria-label="Next models"
+                            onClick={handleBrandNext}
+                            disabled={brandSlideIndex >= Math.ceil(brands.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide}
+                            aria-label="Next brands"
                           >
                             <Icon name="chevron-right" size={16} />
                           </Button>
@@ -413,32 +395,95 @@ export default function HomePage() {
                       )}
                     </div>
                   </div>
-                ) : (
-                  <div className="text-gray-300 text-sm">No models available</div>
-                )
-              ) : (
-                <div className="text-gray-300 text-sm">Select a brand first</div>
-              )}
-            </div>
+                </div>
 
-            {/* Additional Filter Sections (Placeholder) */}
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-white mb-2">Price Range</h3>
-              <div className="text-gray-300 text-sm">Coming soon...</div>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-white mb-2">Category</h3>
-              <div className="text-gray-300 text-sm">Coming soon...</div>
-            </div>
-          </div>
-        </div>
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-white mb-2">Model</h3>
+                  {selectedBrandId ? (
+                    models.length > 0 ? (
+                      <div className="w-full p-2 bg-slate-700 rounded-lg">
+                        <div className="relative">
+                          <div className="grid grid-rows-2 grid-cols-3 gap-2">
+                            {models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).map((model) => (
+                              <Button
+                                key={model.id}
+                                variant="outline"
+                                className={`bg-slate-700 border-slate-600 text-white hover:bg-slate-600 h-10 text-ellipsis overflow-hidden whitespace-nowrap ${
+                                  selectedModelId === model.name ? "bg-blue-600 border-blue-600" : ""
+                                }`}
+                                onClick={() => handleModelClick(model.name)}
+                              >
+                                {model.name}
+                              </Button>
+                            ))}
+                            {models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).length < itemsPerSlide &&
+                              Array(itemsPerSlide - models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).length)
+                                .fill()
+                                .map((_, index) => (
+                                  <div key={`empty-model-${index}`} className="h-10"></div>
+                                ))}
+                          </div>
+                          {models.length > itemsPerSlide && (
+                            <div className="flex justify-between mt-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="bg-slate-700 text-white hover:bg-slate-600"
+                                onClick={handleModelPrev}
+                                disabled={modelSlideIndex === 0}
+                                aria-label="Previous models"
+                              >
+                                <Icon name="chevron-left" size={16} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="bg-slate-700 text-white hover:bg-slate-600"
+                                onClick={handleModelNext}
+                                disabled={modelSlideIndex >= Math.ceil(models.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide}
+                                aria-label="Next models"
+                              >
+                                <Icon name="chevron-right" size={16} />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-gray-300 text-sm">No models available</div>
+                    )
+                  ) : (
+                    <div className="text-gray-300 text-sm">Select a brand first</div>
+                  )}
+                </div>
 
-        {/* Overlay when filter is open */}
-        {isFilterOpen && (
-          <div
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={toggleFilter}
-          ></div>
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-white mb-2">Year Range</h3>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Start Year"
+                      value={yearStart || ""}
+                      onChange={(e) => handleYearChange("start", e.target.value)}
+                      className="bg-slate-700 text-white border-slate-600"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="End Year"
+                      value={yearEnd || ""}
+                      onChange={(e) => handleYearChange("end", e.target.value)}
+                      className="bg-slate-700 text-white border-slate-600"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-white mb-2">Category</h3>
+                  <div className="text-gray-300 text-sm">Coming soon...</div>
+                </div>
+              </div>
+            </div>
+          </>
         )}
 
         <div className={`grid gap-4 ${viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"}`}>
@@ -491,7 +536,7 @@ export default function HomePage() {
                     <div className="text-xs text-gray-400 line-through">{product.originalPrice}</div>
                   </div>
                   <Button
-                    variant="primary"
+                    variant="primary"   
                     size="sm"
                     disabled={!product.inStock}
                     onClick={(e) => {

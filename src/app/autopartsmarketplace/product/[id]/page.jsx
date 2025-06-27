@@ -111,7 +111,7 @@ export default function ProductPage() {
   };
 
   const addToCart = async () => {
-    const token = localStorage.getItem("userToken");
+    const token = localStorage.getItem("token");
     if (!token) {
       setPopup("Login In First To Add Item To Cart");
       setTimeout(() => {
@@ -245,9 +245,6 @@ export default function ProductPage() {
                 </Badge>
               )}
               <div className="absolute bottom-4 right-4 flex gap-2">
-                <button className="bg-slate-800/80 backdrop-blur-sm p-3 rounded-full hover:bg-slate-700 transition">
-                  <Icon name="heart" size={20} className="text-white" />
-                </button>
                 <button className="bg-slate-800/80 backdrop-blur-sm p-3 rounded-full hover:bg-slate-700 transition">
                   <Icon name="share" size={20} className="text-white" />
                 </button>

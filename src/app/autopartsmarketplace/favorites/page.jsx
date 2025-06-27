@@ -20,7 +20,7 @@ export default function FavoritesPage() {
   useEffect(() => {
     const fetchFavorites = async () => {
       try {
-        const token = localStorage.getItem("userToken");
+        const token = localStorage.getItem("token");
         if (!token) {
           router.push("/autopartsmarketplace/login");
           return;
@@ -93,7 +93,7 @@ export default function FavoritesPage() {
   };
 
   const addToCart = async (product) => {
-    const token = localStorage.getItem("userToken");
+    const token = localStorage.getItem("token");
     if (!token) {
       setShowPopup({
         type: "error",
@@ -179,7 +179,7 @@ export default function FavoritesPage() {
   };
 
   const removeFromFavorites = async (product) => {
-    const token = localStorage.getItem("userToken");
+    const token = localStorage.getItem("token");
     if (!token) {
       localStorage.setItem("redirectUrl", "/autopartsmarketplace/favorites");
       setShowPopup({

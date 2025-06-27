@@ -45,7 +45,7 @@ export default function CartPage() {
     setLoading(true);
     setError(null);
 
-    const token = localStorage.getItem("userToken");
+    const token = localStorage.getItem("token");
     if (!token) {
       router.push("/autopartsmarketplace/login");
       return;
@@ -93,7 +93,7 @@ export default function CartPage() {
 
   const fetchAddresses = async () => {
     try {
-      const token = localStorage.getItem("userToken");
+      const token = localStorage.getItem("token");
       if (!token) {
         router.push("/autopartsmarketplace/login");
         return;
@@ -165,7 +165,7 @@ export default function CartPage() {
     if (parsedQuantity < 1 || isNaN(parsedQuantity)) return;
 
     try {
-      const token = localStorage.getItem("userToken");
+      const token = localStorage.getItem("token");
       if (!token) {
         router.push("/autopartsmarketplace/login");
         return;
@@ -201,7 +201,7 @@ export default function CartPage() {
 
   const removeItem = async (id) => {
     try {
-      const token = localStorage.getItem("userToken");
+      const token = localStorage.getItem("token");
       if (!token) {
         router.push("/autopartsmarketplace/login");
         return;
@@ -278,7 +278,7 @@ export default function CartPage() {
     }
 
     try {
-      const token = localStorage.getItem("userToken") || localStorage.getItem("token");
+      const token = localStorage.getItem("token") || localStorage.getItem("token");
       if (!token) {
         router.push("/autopartsmarketplace/login");
         return;
@@ -344,7 +344,7 @@ export default function CartPage() {
 
     try {
       setLoading(true);
-      const token = localStorage.getItem("userToken");
+      const token = localStorage.getItem("token");
       if (!token) {
         router.push("/autopartsmarketplace/login");
         return;

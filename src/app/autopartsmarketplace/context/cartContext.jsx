@@ -13,7 +13,7 @@ export function CartProvider({ children }) {
 
   const fetchCartItemCount = async () => {
     try {
-      const token = localStorage.getItem("userToken");
+      const token = localStorage.getItem("token");
       if (!token) return;
 
       const response = await axios.post(
