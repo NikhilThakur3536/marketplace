@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Layout from "./components/Layout";
 import { Button } from "./components/Button";
 import { Icon } from "./components/Icon";
@@ -9,16 +9,19 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import debounce from "lodash/debounce";
+import { useLanguage } from "./context/languageContext";
 
 export default function HomePage() {
   const router = useRouter();
+  const { selectedLanguageId, setSelectedLanguageId } = useLanguage();
   const [viewMode, setViewMode] = useState("grid");
   const [products, setProducts] = useState([]);
   const [showPopup, setShowPopup] = useState(null);
   const [brands, setBrands] = useState([]);
   const [models, setModels] = useState([]);
-  const [selectedBrandId, setSelectedBrandId] = useState(null); // Stores brand name
-  const [selectedModelId, setSelectedModelId] = useState(null); // Stores model name
+  const [languages, setLanguages] = useState([]);
+  const [selectedBrandId, setSelectedBrandId] = useState(null);
+  const [selectedModelId, setSelectedModelId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [brandSlideIndex, setBrandSlideIndex] = useState(0);
@@ -26,79 +29,150 @@ export default function HomePage() {
   const [yearStart, setYearStart] = useState(null);
   const [yearEnd, setYearEnd] = useState(null);
 
-  const itemsPerSlide = 6; // 2 rows x 3 columns
+  const itemsPerSlide = 6;
 
-  const fetchData = useCallback(
-    debounce(async (search, brandName, modelName, yearStart, yearEnd, currentBrands) => {
+  // Fetch languages on mount
+  const fetchLanguages = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
+      if (!token) {
+        router.push("/autopartsmarketplace/login");
+        return;
+      }
+
+      const languageResponse = await axios.post(
+        `${BASE_URL}/user/language/list`,
+        { limit: 10, offset: 0 },
+        { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+      );
+
+      if (languageResponse.data?.success && languageResponse.data?.data?.length > 0) {
+        setLanguages(languageResponse.data.data);
+        if (!selectedLanguageId) {
+          setSelectedLanguageId(languageResponse.data.data[0].id);
+        }
+      } else {
+        console.log("No languages found");
+        setLanguages([]);
+      }
+    } catch (error) {
+      console.error("Error fetching languages:", error);
+      setShowPopup({
+        type: "error",
+        message: error.response?.data?.message || "Failed to load languages.",
+      });
+      setTimeout(() => setShowPopup(null), 3000);
+    }
+  }, [router, selectedLanguageId, setSelectedLanguageId]);
+
+  // Fetch manufacturers on mount or language change
+  const fetchManufacturers = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
+      if (!token) {
+        router.push("/autopartsmarketplace/login");
+        return;
+      }
+
+      const manufacturerResponse = await axios.post(
+        `${BASE_URL}/user/manufacturer/list`,
+        { limit: 10, offset: 0 },
+        { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+      );
+
+      if (manufacturerResponse.data?.success && manufacturerResponse.data?.data?.length > 0) {
+        setBrands(manufacturerResponse.data.data);
+      } else {
+        console.log("No manufacturers found");
+        setBrands([]);
+;
+      }
+    } catch (error) {
+      console.error("Error fetching manufacturers:", error);
+      setShowPopup({
+        type: "error",
+        message: error.response?.data?.message || "Failed to load manufacturers.",
+      });
+      setTimeout(() => setShowPopup(null), 3000);
+    }
+  }, [router]);
+
+  // Fetch models when brand is selected
+  const fetchModels = useCallback(
+    debounce(async (brandId, search, yearStart, yearEnd) => {
       try {
         const token = localStorage.getItem("token");
-        const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+        const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
+        if (!token || !brandId) {
+          setModels([]);
+          return;
+        }
+
+        const modelPayload = {
+          limit: 10,
+          offset: 0,
+          manufacturedId: brandId,
+        };
+        if (search) {
+          modelPayload.name = search;
+        }
+        if (yearStart) {
+          modelPayload.yearStart = parseInt(yearStart);
+        }
+        if (yearEnd) {
+          modelPayload.yearEnd = parseInt(yearEnd);
+        }
+
+        const modelResponse = await axios.post(
+          `${BASE_URL}/user/productModel/list`,
+          modelPayload,
+          { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+        );
+
+        if (modelResponse.data?.success && modelResponse.data?.data?.length > 0) {
+          setModels(modelResponse.data.data);
+        } else {
+          console.log("No models found for selected brand or filters");
+          setModels([]);
+        }
+      } catch (error) {
+        console.error("Error fetching models:", error);
+        setShowPopup({
+          type: "error",
+          message: error.response?.data?.message || "Failed to load models.",
+        });
+        setTimeout(() => setShowPopup(null), 3000);
+      }
+    }, 300),
+    [router]
+  );
+
+  // Fetch products
+  const fetchProducts = useCallback(
+    debounce(async (search, brandId, modelId) => {
+      try {
+        const token = localStorage.getItem("token");
+        const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
         if (!token) {
           router.push("/autopartsmarketplace/login");
           return;
         }
 
-        // Fetch manufacturers if not already loaded
-        if (currentBrands.length === 0) {
-          const manufacturerResponse = await axios.post(
-            `${BASE_URL}/user/manufacturer/list`,
-            { limit: 10, offset: 0 },
-            { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
-          );
-
-          if (manufacturerResponse.data?.success && manufacturerResponse.data?.data?.length > 0) {
-            setBrands(manufacturerResponse.data.data);
-          } else {
-            console.log("No manufacturers found");
-          }
-        }
-
-        // Fetch models if a brand is selected
-        if (brandName) {
-          const brand = currentBrands.find((b) => b.name === brandName);
-          const modelPayload = {
-            limit: 10,
-            offset: 0,
-            manufacturedId: brand?.id,
-          };
-          if (search && !modelName) {
-            modelPayload.name = search; // Search by model name
-          }
-          if (yearStart) {
-            modelPayload.yearStart = parseInt(yearStart);
-          }
-          if (yearEnd) {
-            modelPayload.yearEnd = parseInt(yearEnd);
-          }
-
-          const modelResponse = await axios.post(
-            `${BASE_URL}/user/productModel/list`,
-            modelPayload,
-            { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
-          );
-
-          if (modelResponse.data?.success && modelResponse.data?.data?.length > 0) {
-            setModels(modelResponse.data.data);
-          } else {
-            console.log("No models found for selected brand or filters");
-            setModels([]);
-          }
-        } else {
-          setModels([]);
-        }
-
-        // Fetch products
         const productPayload = {
           limit: 4000,
           offset: 0,
-          languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
+          languageId: selectedLanguageId,
         };
-        if (search && !modelName && !brandName) {
-          productPayload.searchKey = search; // General search
-        } else if (modelName) {
-          productPayload.searchKey = modelName; // Prioritize model name
-        } else if (brandName) {
-          productPayload.searchKey = brandName; // Fallback to brand name
+        if (brandId) {
+          productPayload.manufacturerId = brandId;
+        }
+        if (modelId) {
+          productPayload.productModelId = modelId;
+        }
+        if (search && !brandId && !modelId) {
+          productPayload.searchKey = search;
         }
 
         const productResponse = await axios.post(
@@ -117,8 +191,14 @@ export default function HomePage() {
               id: product.id,
               name: product.productLanguages[0]?.name || "Unknown Product",
               brand: product.manufacturer?.name || "Generic",
-              price: `₹${price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-              originalPrice: `₹${originalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              price: `₹${price.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`,
+              originalPrice: `₹${originalPrice.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`,
               discount,
               rating: 4.5,
               reviews: 100,
@@ -126,6 +206,7 @@ export default function HomePage() {
               freeShipping: true,
               inStock: parseFloat(variant?.inventory?.quantity || 0) > 0,
               isFavorite: false,
+              variantId: variant?.id || null,
             };
           });
           setProducts(apiProducts);
@@ -134,20 +215,41 @@ export default function HomePage() {
           setProducts([]);
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching products:", error);
         setShowPopup({
           type: "error",
-          message: error.response?.data?.message || "Failed to load data.",
+          message: error.response?.data?.message || "Failed to load products.",
         });
         setTimeout(() => setShowPopup(null), 3000);
       }
     }, 300),
-    [router]
+    [router, selectedLanguageId]
   );
 
+  // Fetch languages and manufacturers on mount
   useEffect(() => {
-    fetchData(searchTerm, selectedBrandId, selectedModelId, yearStart, yearEnd, brands);
-  }, [searchTerm, selectedBrandId, selectedModelId, yearStart, yearEnd, brands, fetchData]);
+    fetchLanguages();
+    fetchManufacturers();
+  }, [fetchLanguages, fetchManufacturers]);
+
+  // Fetch models when brand or filters change
+  useEffect(() => {
+    if (selectedBrandId) {
+      fetchModels(selectedBrandId, searchTerm, yearStart, yearEnd);
+    } else {
+      setModels([]);
+    }
+  }, [selectedBrandId, searchTerm, yearStart, yearEnd, fetchModels]);
+
+  useEffect(() => {
+    if (selectedLanguageId) {
+      fetchProducts(searchTerm, selectedBrandId, selectedModelId);
+    }
+  }, [searchTerm, selectedBrandId, selectedModelId, selectedLanguageId, fetchProducts]);
+
+  // Memoize brands and languages to prevent reference changes
+  const memoizedBrands = useMemo(() => brands, [brands]);
+  const memoizedLanguages = useMemo(() => languages, [languages]);
 
   const handleYearChange = (type, value) => {
     const year = value ? parseInt(value) : null;
@@ -167,16 +269,28 @@ export default function HomePage() {
     }
   };
 
-  const handleBrandClick = (brandName) => {
-    setSelectedBrandId(brandName);
+  const handleBrandClick = (brand) => {
+    setSelectedBrandId(brand.id);
     setSelectedModelId(null);
-    setSearchTerm("");
     setModelSlideIndex(0);
   };
 
-  const handleModelClick = (modelName) => {
-    setSelectedModelId(modelName);
+  const handleModelClick = (model) => {
+    setSelectedModelId(model.id);
+  };
+
+  const handleLanguageChange = (languageId) => {
+    setSelectedLanguageId(languageId);
+    setSelectedBrandId(null);
+    setSelectedModelId(null);
     setSearchTerm("");
+    setYearStart(null);
+    setYearEnd(null);
+    setBrandSlideIndex(0);
+    setModelSlideIndex(0);
+    setBrands([]);
+    setModels([]);
+    fetchManufacturers(); // Re-fetch brands for new language
   };
 
   const handleSearchChange = (e) => {
@@ -189,10 +303,55 @@ export default function HomePage() {
     setModelSlideIndex(0);
   };
 
+  const addToCart = async (product) => {
+    const token = localStorage.getItem("token");
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
+    if (!token) {
+      setShowPopup({ type: "error", message: "Please log in to add item to cart." });
+      setTimeout(() => {
+        setShowPopup(null);
+        router.push("/autopartsmarketplace/login");
+      }, 1000);
+      return;
+    }
+    try {
+      if (!product.variantId) throw new Error("Variant ID not found.");
+      const cartResponse = await axios.post(
+        `${BASE_URL}/user/cart/listv2`,
+        { languageId: selectedLanguageId },
+        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+      );
+      const cartItems = cartResponse.data?.data?.rows || [];
+      const existingItem = cartItems.find(
+        (item) => item.product?.id === product.id && item.varientId === product.variantId
+      );
+      if (existingItem) {
+        const newQuantity = existingItem.quantity + 1;
+        await axios.post(
+          `${BASE_URL}/user/cart/edit`,
+          { cartId: existingItem.id, quantity: newQuantity },
+          { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+        );
+        setShowPopup({ type: "success", message: `${product.name} quantity updated in cart!` });
+      } else {
+        const cartItem = { productId: product.id, quantity: 1, varientId: product.variantId };
+        await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        });
+        setShowPopup({ type: "success", message: `${product.name} added successfully to cart!` });
+      }
+    } catch (err) {
+      console.error("Error adding to cart:", err.message);
+      setShowPopup({ type: "error", message: "Failed to add to cart. Please try again." });
+    } finally {
+      setTimeout(() => setShowPopup(null), 3000);
+    }
+  };
+
   const toggleFavorite = async (e, product) => {
     e.stopPropagation();
-    const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
-    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
 
     if (!token) {
       if (typeof window !== "undefined") {
@@ -226,7 +385,7 @@ export default function HomePage() {
 
       setShowPopup({
         type: "success",
-        message: `${product.name} ${action} favorites!`,
+        message: `Product ${action} favorites.`,
       });
       setTimeout(() => setShowPopup(null), 2000);
     } catch (error) {
@@ -249,7 +408,7 @@ export default function HomePage() {
 
   const handleBrandNext = () => {
     setBrandSlideIndex((prev) =>
-      Math.min(prev + itemsPerSlide, Math.ceil(brands.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide)
+      Math.min(prev + itemsPerSlide, Math.ceil(memoizedBrands.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide)
     );
   };
 
@@ -346,30 +505,62 @@ export default function HomePage() {
                 </div>
 
                 <div className="mb-6">
+                  <h3 className="text-sm font-medium text-white mb-2">Language</h3>
+                  <div className="relative">
+                    <select
+                      value={selectedLanguageId || ""}
+                      onChange={(e) => handleLanguageChange(e.target.value)}
+                      className="w-full p-2 bg-slate-700 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    >
+                      {memoizedLanguages.length === 0 ? (
+                        <option value="" disabled>
+                          Loading languages...
+                        </option>
+                      ) : (
+                        memoizedLanguages.map((language) => (
+                          <option key={language.id} value={language.id}>
+                            {language.name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <Icon
+                      name="globe"
+                      size={16}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-6">
                   <h3 className="text-sm font-medium text-white mb-2">Title and Brand</h3>
                   <div className="w-full p-2 bg-slate-700 rounded-lg">
                     <div className="relative">
                       <div className="grid grid-rows-2 grid-cols-3 gap-2">
-                        {brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).map((brand) => (
+                        {memoizedBrands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).map((brand) => (
                           <Button
                             key={brand.id}
                             variant="outline"
                             className={`bg-slate-700 border-slate-600 text-white hover:bg-slate-600 h-10 text-ellipsis overflow-hidden whitespace-nowrap ${
-                              selectedBrandId === brand.name ? "bg-blue-600 border-blue-600" : ""
+                              selectedBrandId === brand.id ? "bg-blue-600 border-blue-600" : ""
                             }`}
-                            onClick={() => handleBrandClick(brand.name)}
+                            onClick={() => handleBrandClick(brand)}
                           >
                             {brand.name}
                           </Button>
                         ))}
-                        {brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length < itemsPerSlide &&
-                          Array(itemsPerSlide - brands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length)
+                        {memoizedBrands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length <
+                          itemsPerSlide &&
+                          Array(
+                            itemsPerSlide -
+                              memoizedBrands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length
+                          )
                             .fill()
                             .map((_, index) => (
                               <div key={`empty-brand-${index}`} className="h-10"></div>
                             ))}
                       </div>
-                      {brands.length > itemsPerSlide && (
+                      {memoizedBrands.length > itemsPerSlide && (
                         <div className="flex justify-between mt-2">
                           <Button
                             variant="ghost"
@@ -386,7 +577,10 @@ export default function HomePage() {
                             size="sm"
                             className="bg-slate-700 text-white hover:bg-slate-600"
                             onClick={handleBrandNext}
-                            disabled={brandSlideIndex >= Math.ceil(brands.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide}
+                            disabled={
+                              brandSlideIndex >=
+                              Math.ceil(memoizedBrands.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide
+                            }
                             aria-label="Next brands"
                           >
                             <Icon name="chevron-right" size={16} />
@@ -409,15 +603,19 @@ export default function HomePage() {
                                 key={model.id}
                                 variant="outline"
                                 className={`bg-slate-700 border-slate-600 text-white hover:bg-slate-600 h-10 text-ellipsis overflow-hidden whitespace-nowrap ${
-                                  selectedModelId === model.name ? "bg-blue-600 border-blue-600" : ""
+                                  selectedModelId === model.id ? "bg-blue-600 border-blue-600" : ""
                                 }`}
-                                onClick={() => handleModelClick(model.name)}
+                                onClick={() => handleModelClick(model)}
                               >
                                 {model.name}
                               </Button>
                             ))}
-                            {models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).length < itemsPerSlide &&
-                              Array(itemsPerSlide - models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).length)
+                            {models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).length <
+                              itemsPerSlide &&
+                              Array(
+                                itemsPerSlide -
+                                  models.slice(modelSlideIndex, modelSlideIndex + itemsPerSlide).length
+                              )
                                 .fill()
                                 .map((_, index) => (
                                   <div key={`empty-model-${index}`} className="h-10"></div>
@@ -440,7 +638,10 @@ export default function HomePage() {
                                 size="sm"
                                 className="bg-slate-700 text-white hover:bg-slate-600"
                                 onClick={handleModelNext}
-                                disabled={modelSlideIndex >= Math.ceil(models.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide}
+                                disabled={
+                                  modelSlideIndex >=
+                                  Math.ceil(models.length / itemsPerSlide) * itemsPerSlide - itemsPerSlide
+                                }
                                 aria-label="Next models"
                               >
                                 <Icon name="chevron-right" size={16} />
@@ -536,12 +737,12 @@ export default function HomePage() {
                     <div className="text-xs text-gray-400 line-through">{product.originalPrice}</div>
                   </div>
                   <Button
-                    variant="primary"   
+                    variant="primary"
                     size="sm"
                     disabled={!product.inStock}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Add to cart logic
+                      addToCart(product);
                     }}
                   >
                     {product.inStock ? "Add" : "Out of Stock"}

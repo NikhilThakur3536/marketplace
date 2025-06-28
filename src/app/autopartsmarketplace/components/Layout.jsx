@@ -1,22 +1,47 @@
-"use client";
-
-import React from "react";
+// In Layout.js
+import React, { useState, useEffect, useRef } from "react";
 import { Icon } from "./Icon";
 import { Badge } from "./Badge";
 import { usePathname, useRouter } from "next/navigation";
 import { useCart } from "../context/cartContext";
+import { useLanguage } from "../context/languageContext";
+import { GlassWater, Globe } from "lucide-react";
+
+const navItems = [
+  { name: "Home", path: "/autopartsmarketplace", icon: "home" },
+  { name: "Search", path: "/autopartsmarketplace/search", icon: "search" },
+  { name: "Cart", path: "/autopartsmarketplace/cart", icon: "cart" },
+  { name: "Profile", path: "/autopartsmarketplace/profile", icon: "user" },
+];
 
 export default function Layout({ children, title, showBackButton = false, showHeader = true, showFooter = true }) {
   const router = useRouter();
   const pathname = usePathname();
   const { cartItemCount } = useCart();
+  const { languages, selectedLanguageId, setSelectedLanguageId, loading: langLoading, error: langError } = useLanguage();
+  const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
+  const [showPopup, setShowPopup] = useState(null);
+  const dropdownRef = useRef(null);
 
-  const navItems = [
-    { name: "Home", icon: "home", path: "/autopartsmarketplace" },
-    { name: "Orders", icon: "list", path: "/autopartsmarketplace/orders" },
-    { name: "Favorites", icon: "heart", path: "/autopartsmarketplace/favorites" },
-    { name: "Profile", icon: "user", path: "/autopartsmarketplace/profile" },
-  ];
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsLanguageDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleLanguageChange = (languageId, languageName) => {
+    setSelectedLanguageId(languageId);
+    setIsLanguageDropdownOpen(false);
+    setShowPopup({
+      type: "success",
+      message: `Language changed to ${languageName}`,
+    });
+    setTimeout(() => setShowPopup(null), 2000);
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 text-white max-w-md mx-auto relative">
@@ -44,7 +69,38 @@ export default function Layout({ children, title, showBackButton = false, showHe
               )}
             </div>
             <div className="flex items-center gap-2">
-              
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  className="p-2 bg-slate-700 rounded-full text-white hover:bg-slate-600"
+                  onClick={() => setIsLanguageDropdownOpen(!isLanguageDropdownOpen)}
+                  aria-label="Select Language"
+                >
+                  <Globe size={15} />
+                </button>
+                {isLanguageDropdownOpen && (
+                  <div className="absolute top-10 right-0 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50 w-48 max-h-60 overflow-y-auto">
+                    {langLoading ? (
+                      <div className="p-2 text-gray-300">Loading languages...</div>
+                    ) : langError ? (
+                      <div className="p-2 text-red-400">{langError}</div>
+                    ) : languages.length > 0 ? (
+                      languages.map((language) => (
+                        <button
+                          key={language.id}
+                          className={`w-full text-left px-4 py-2 text-white hover:bg-slate-700 ${
+                            selectedLanguageId === language.id ? "bg-blue-600" : ""
+                          }`}
+                          onClick={() => handleLanguageChange(language.id, language.name)}
+                        >
+                          {language.name}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="p-2 text-gray-300">No languages available</div>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 className="relative"
                 onClick={() => router.push("/autopartsmarketplace/cart")}
@@ -63,7 +119,6 @@ export default function Layout({ children, title, showBackButton = false, showHe
           </div>
         </header>
       )}
-
       <main className="pb-20">{children}</main>
 
       {showFooter && (

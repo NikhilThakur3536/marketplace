@@ -11,6 +11,7 @@ import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import { useCart } from "../../context/cartContext";
 import { useChat } from "../../context/chatContext";
+import { useLanguage } from "../../context/languageContext"; // Import LanguageContext
 import ChatInterface from "../../components/ChatInterface";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
@@ -18,6 +19,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.
 export default function ProductPage() {
   const router = useRouter();
   const { id } = useParams();
+  const { cartItemCount, fetchCartItemCount } = useCart();
+  const { initiateChat, chatError } = useChat();
+  const { selectedLanguageId } = useLanguage(); // Access selectedLanguageId from context
   const [quantity, setQuantity] = useState(1);
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,8 +29,6 @@ export default function ProductPage() {
   const [cartMessage, setCartMessage] = useState("");
   const [popup, setPopup] = useState("");
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const { cartItemCount, fetchCartItemCount } = useCart();
-  const { initiateChat, chatError } = useChat();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -43,7 +45,7 @@ export default function ProductPage() {
         const payload = {
           limit: 4000,
           offset: 0,
-          languageId: "2bfa9d89-61c4-401e-aae3-346627460558",
+          languageId: selectedLanguageId, // Use selectedLanguageId from context
         };
 
         const response = await axios.post(`${BASE_URL}/user/product/listv2`, payload, {
@@ -63,9 +65,15 @@ export default function ProductPage() {
           id: rawProduct.id,
           name: rawProduct.productLanguages?.[0]?.name || "Unknown Product",
           brand: rawProduct.category?.categoryLanguages?.[0]?.name || "Generic",
-          price: `₹${rawProduct.varients?.[0]?.inventory?.price.toLocaleString() || "N/A"}`,
+          price: `₹${rawProduct.varients?.[0]?.inventory?.price.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) || "N/A"}`,
           originalPrice: rawProduct.varients?.[0]?.inventory?.originalPrice
-            ? `₹${rawProduct.varients[0].inventory.originalPrice.toLocaleString()}`
+            ? `₹${rawProduct.varients[0].inventory.originalPrice.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`
             : null,
           discount: rawProduct.varients?.[0]?.inventory?.discountPercentage
             ? `-${rawProduct.varients[0].inventory.discountPercentage}%`
@@ -89,7 +97,7 @@ export default function ProductPage() {
           variantId: rawProduct.varients?.[0]?.id || null,
           inventoryId: rawProduct.varients?.[0]?.inventory?.id || null,
           sellerId: rawProduct.store?.id || null,
-          sellerName:rawProduct.store?.name
+          sellerName: rawProduct.store?.name,
         };
 
         setProduct(formattedProduct);
@@ -104,7 +112,7 @@ export default function ProductPage() {
     if (id) {
       fetchProduct();
     }
-  }, [id, router]);
+  }, [id, router, selectedLanguageId]); // Add selectedLanguageId to dependencies
 
   const incrementQuantity = () => {
     setQuantity((prev) => prev + 1);
@@ -119,7 +127,7 @@ export default function ProductPage() {
   const addToCart = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
-      setPopup("Login In First To Add Item To Cart");
+      setPopup("Please log in to add item to cart.");
       setTimeout(() => {
         router.push("/autopartsmarketplace/login");
       }, 1000);
@@ -131,13 +139,13 @@ export default function ProductPage() {
 
       const cartResponse = await axios.post(
         `${BASE_URL}/user/cart/listv2`,
-        { languageId: "2bfa9d89-61c4-401e-aae3-346627460558" },
+        { languageId: selectedLanguageId }, // Use selectedLanguageId
         {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        },
+        }
       );
 
       const cartItems = cartResponse.data?.data?.rows || [];
@@ -158,7 +166,7 @@ export default function ProductPage() {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
-          },
+          }
         );
         setCartMessage(`${product.name} quantity updated in cart!`);
       } else {
@@ -211,7 +219,7 @@ export default function ProductPage() {
 
       if (chatId) {
         setIsChatOpen(true);
-      } 
+      }
     } else {
       setIsChatOpen(false);
     }
@@ -247,7 +255,6 @@ export default function ProductPage() {
         <div className="grid grid-cols-1 gap-6">
           {/* Product Images and Info */}
           <div>
-            {/* Product Images */}
             <div className="relative mb-6">
               <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden shadow-lg">
                 <Image
@@ -270,7 +277,6 @@ export default function ProductPage() {
               </div>
             </div>
 
-            {/* Product Info */}
             <div className="mb-6">
               <div className="text-sm text-blue-400 mb-2">{product.brand}</div>
               <div className="flex justify-between items-start">
@@ -295,7 +301,6 @@ export default function ProductPage() {
               <p className="text-gray-300 mt-4">{product.shortDescription}</p>
             </div>
 
-            {/* Quantity Selector, Actions, and Chat Button */}
             <Card className="mb-6 bg-slate-800/50 backdrop-blur-sm">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -339,7 +344,6 @@ export default function ProductPage() {
               </CardContent>
             </Card>
 
-            {/* Product Details Sections */}
             <div className="space-y-6">
               <Card className="bg-slate-800/50 backdrop-blur-sm">
                 <CardContent className="p-6">
@@ -358,8 +362,8 @@ export default function ProductPage() {
                         <span className="text-white">{spec.value}</span>
                       </div>
                     ))}
-                  </div>
-                </CardContent>
+                    </div>
+                  </CardContent>
               </Card>
 
               <Card className="bg-slate-800/50 backdrop-blur-sm">
@@ -371,22 +375,20 @@ export default function ProductPage() {
             </div>
           </div>
 
-          {/* Chat Interface */}
           {isChatOpen && (
             <ChatInterface
               onClose={toggleChat}
               productId={product.id}
               variantId={product.variantId}
               inventoryId={product.inventoryId}
-              productName={product.name} 
-              productImage={product.image}
+              productName={product.name}
+              productImage={product.images[0]}
               productDescription={product.description}
               productSeller={product.sellerName}
             />
           )}
         </div>
 
-        {/* Notifications */}
         {cartMessage && (
           <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg z-60 flex items-center gap-4 max-w-md w-full">
             <p>{cartMessage}</p>
