@@ -27,7 +27,7 @@ export function CartProvider({ children }) {
         }
       );
 
-      console.log("Fetch cart count response:", response.data); // Debug
+      // console.log("Fetch cart count response:", response.data); // Debug
       if (response.data?.success) {
         const items = response.data.data.rows || [];
         setCartItemCount(items.length);

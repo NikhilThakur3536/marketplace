@@ -58,7 +58,7 @@ export default function FavoritesPage() {
           setFavorites(apiFavorites);
           setQuantities(apiFavorites.reduce((acc, item) => ({ ...acc, [item.id]: 1 }), {}));
         } else {
-          console.log("No favorite products found");
+          // console.log("No favorite products found");
         }
       } catch (error) {
         console.error("Error fetching favorite products:", error);
@@ -120,7 +120,7 @@ export default function FavoritesPage() {
         }
       );
 
-      console.log("Cart list response:", cartResponse.data);
+      // console.log("Cart list response:", cartResponse.data);
       const cartItems = cartResponse.data?.data?.rows || [];
       const existingItem = cartItems.find(
         (item) => item.product?.id === product.id && item.varientId === product.variantId
@@ -141,7 +141,7 @@ export default function FavoritesPage() {
             },
           }
         );
-        console.log("Edit cart response:", editResponse.data);
+        // console.log("Edit cart response:", editResponse.data);
         setShowPopup({
           type: "success",
           message: `${product.name} quantity updated in cart!`,
@@ -159,7 +159,7 @@ export default function FavoritesPage() {
             "Content-Type": "application/json",
           },
         });
-        console.log("Add to cart response:", addResponse.data);
+        // console.log("Add to cart response:", addResponse.data);
         setShowPopup({
           type: "success",
           message: `${product.name} added successfully to cart!`,

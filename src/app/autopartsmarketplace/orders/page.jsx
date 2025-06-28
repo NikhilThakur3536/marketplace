@@ -48,14 +48,14 @@ export default function OrdersPage() {
         );
 
         // Log raw API response to inspect the data structure
-        console.log("Raw API Response:", response.data?.data?.rows);
+        // console.log("Raw API Response:", response.data?.data?.rows);
 
         // Normalize orders to ensure items is always an array
         const fetchedOrders = (response.data?.data?.rows || []).map((order) => ({
           ...order,
           items: Array.isArray(order.items) ? order.items : [],
         }));
-        console.log("Fetched Orders:", fetchedOrders); // Log normalized orders
+        // console.log("Fetched Orders:", fetchedOrders); // Log normalized orders
         setOrders(fetchedOrders);
         setLoading(false);
       } catch (err) {
@@ -151,7 +151,7 @@ export default function OrdersPage() {
         ) : filteredOrders.length > 0 ? (
           <div className="space-y-4">
             {filteredOrders.map((order) => {
-              console.log(`Order ID: ${order.id}, order.items:`, order); // Log order.items
+              // console.log(`Order ID: ${order.id}, order.items:`, order); // Log order.items
               return (
                 <Card key={order.id} className="overflow-hidden">
                   <div className="bg-slate-700 px-4 py-3 flex justify-between items-center">
@@ -168,7 +168,7 @@ export default function OrdersPage() {
                     <div className="p-4 border-b border-slate-700">
                       {Array.isArray(order.orderProducts) && order.orderProducts.length > 0 ? (
                         order.orderProducts.map((item) => {
-                          console.log(`Order ID: ${order.id}, item:`, item); // Log each item
+                          // console.log(`Order ID: ${order.id}, item:`, item); // Log each item
                           return (
                             <div key={item.id} className="flex items-center gap-3 mb-3 last:mb-0">
                               <div className="w-12 h-12 bg-slate-700 rounded-md overflow-hidden flex-shrink-0">
@@ -242,7 +242,7 @@ export default function OrdersPage() {
                             <div>
                               <div className="text-xs text-gray-400">Status</div>
                               {getStatusBadge(orderDetails[order.id]?.orderStatus || order.orderProductDetails?.[0]?.status)}
-                              {console.log("status",orderDetails)}
+                              {/* {console.log("status",orderDetails)} */}
                             </div>
                             <div>
                               <div className="text-xs text-gray-400">Total Amount</div>

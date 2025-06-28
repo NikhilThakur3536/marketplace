@@ -53,7 +53,7 @@ export default function HomePage() {
           setSelectedLanguageId(languageResponse.data.data[0].id);
         }
       } else {
-        console.log("No languages found");
+        // console.log("No languages found");
         setLanguages([]);
       }
     } catch (error) {
@@ -85,7 +85,7 @@ export default function HomePage() {
       if (manufacturerResponse.data?.success && manufacturerResponse.data?.data?.length > 0) {
         setBrands(manufacturerResponse.data.data);
       } else {
-        console.log("No manufacturers found");
+        // console.log("No manufacturers found");
         setBrands([]);
 ;
       }
@@ -134,7 +134,7 @@ export default function HomePage() {
         if (modelResponse.data?.success && modelResponse.data?.data?.length > 0) {
           setModels(modelResponse.data.data);
         } else {
-          console.log("No models found for selected brand or filters");
+          // console.log("No models found for selected brand or filters");
           setModels([]);
         }
       } catch (error) {
@@ -211,7 +211,7 @@ export default function HomePage() {
           });
           setProducts(apiProducts);
         } else {
-          console.log("No products found");
+          // console.log("No products found");
           setProducts([]);
         }
       } catch (error) {

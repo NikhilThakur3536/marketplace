@@ -41,7 +41,7 @@ export default function ProfilePage() {
 
   const fetchAddresses = async () => {
     // Placeholder for fetching addresses; implement as needed
-    console.log("Fetching addresses...")
+    // console.log("Fetching addresses...")
   }
 
   const handleAddressSubmit = async (e) => {
