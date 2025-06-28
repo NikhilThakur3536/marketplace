@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
@@ -10,6 +10,8 @@ import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import { useCart } from "../../context/cartContext";
+import { useChat } from "../../context/chatContext";
+import ChatInterface from "../../components/ChatInterface";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
 
@@ -22,10 +24,9 @@ export default function ProductPage() {
   const [error, setError] = useState(null);
   const [cartMessage, setCartMessage] = useState("");
   const [popup, setPopup] = useState("");
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState("");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const { cartItemCount, fetchCartItemCount } = useCart();
+  const { initiateChat, chatError } = useChat();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -84,6 +85,8 @@ export default function ProductPage() {
             : ["/placeholder.svg?height=400&width=400"],
           inStock: rawProduct.varients?.[0]?.inventory?.quantity > 0,
           variantId: rawProduct.varients?.[0]?.id || null,
+          inventoryId: rawProduct.varients?.[0]?.inventory?.id || null,
+          sellerId: rawProduct.store?.id || null,
         };
 
         setProduct(formattedProduct);
@@ -141,7 +144,7 @@ export default function ProductPage() {
 
       if (existingItem) {
         const newQuantity = existingItem.quantity + quantity;
-        const editResponse = await axios.post(
+        await axios.post(
           `${BASE_URL}/user/cart/edit`,
           {
             cartId: existingItem.id,
@@ -162,7 +165,7 @@ export default function ProductPage() {
           varientId: product.variantId,
         };
 
-        const addResponse = await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
+        await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -180,22 +183,35 @@ export default function ProductPage() {
     }
   };
 
-  const handleSendMessage = () => {
-    if (chatInput.trim()) {
-      setChatMessages([...chatMessages, { text: chatInput, isUser: true }]);
-      setChatInput("");
-      // Simulate bot response
-      setTimeout(() => {
-        setChatMessages((prev) => [
-          ...prev,
-          { text: "Thanks for your message! How can we assist you?", isUser: false },
-        ]);
-      }, 1000);
-    }
-  };
+  const toggleChat = async () => {
+    if (!isChatOpen) {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setPopup("Please log in to start a chat.");
+        setTimeout(() => {
+          router.push("/autopartsmarketplace/login");
+        }, 1000);
+        return;
+      }
 
-  const toggleChat = () => {
-    setIsChatOpen(!isChatOpen);
+      if (!product?.sellerId || !product?.id || !product?.variantId || !product?.inventoryId) {
+        setPopup("Missing product or seller information.");
+        return;
+      }
+
+      const chatId = await initiateChat(
+        product.sellerId,
+        product.id,
+        product.variantId,
+        product.inventoryId
+      );
+
+      if (chatId) {
+        setIsChatOpen(true);
+      } 
+    } else {
+      setIsChatOpen(false);
+    }
   };
 
   if (loading) {
@@ -224,10 +240,10 @@ export default function ProductPage() {
 
   return (
     <Layout showBackButton title="Product Details" cartItemCount={cartItemCount}>
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1">
+      <div className="p-6 max-w-md mx-auto">
+        <div className="grid grid-cols-1 gap-6">
           {/* Product Images and Info */}
-          <div className="lg:col-span-2">
+          <div>
             {/* Product Images */}
             <div className="relative mb-6">
               <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden shadow-lg">
@@ -276,7 +292,7 @@ export default function ProductPage() {
               <p className="text-gray-300 mt-4">{product.shortDescription}</p>
             </div>
 
-            {/* Quantity Selector and Actions */}
+            {/* Quantity Selector, Actions, and Chat Button */}
             <Card className="mb-6 bg-slate-800/50 backdrop-blur-sm">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -300,13 +316,23 @@ export default function ProductPage() {
                     </button>
                   </div>
                 </div>
-                <Button
-                  variant="primary"
-                  className="w-full bg-blue-600 hover:bg-blue-700 transition text-white"
-                  onClick={addToCart}
-                >
-                  Add to Cart
-                </Button>
+                <div className="space-y-3">
+                  <Button
+                    variant="primary"
+                    className="w-full bg-blue-600 hover:bg-blue-700 transition text-white"
+                    onClick={addToCart}
+                  >
+                    Add to Cart
+                  </Button>
+                  <Button
+                    onClick={toggleChat}
+                    className="w-full bg-blue-600 hover:bg-blue-700 transition text-white flex items-center justify-center gap-2"
+                    aria-label="Toggle Chat"
+                  >
+                    <Icon name={isChatOpen ? "x" : "message-circle"} size={20} />
+                    {isChatOpen ? "Close Chat" : "Chat with Seller"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
@@ -342,73 +368,20 @@ export default function ProductPage() {
             </div>
           </div>
 
-          {/* Chat Button and Collapsible Panel */}
-          <div className="lg:col-span-1">
-            {/* Floating Chat Button */}
-            <button
-              onClick={toggleChat}
-              className="fixed bottom-6 right-6 bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition z-30"
-              aria-label="Toggle Chat"
-            >
-              <Icon name={isChatOpen ? "x" : "message-circle"} size={24} />
-            </button>
-
-            {/* Collapsible Chat Interface */}
-            {isChatOpen && (
-              <div className="fixed bottom-20 right-6 max-w-md w-full z-20">
-                <Card className="bg-white shadow-2xl rounded-xl overflow-hidden">
-                  <CardContent className="p-4 flex flex-col h-[500px]">
-                    <div className="flex items-center justify-between bg-gray-100 p-3 rounded-t mb-2">
-                      <h3 className="text-lg font-semibold text-gray-800">Customer Support</h3>
-                      <button
-                        onClick={toggleChat}
-                        className="text-gray-600 hover:text-gray-800"
-                        aria-label="Close Chat"
-                      >
-                        <Icon name="x" size={20} />
-                      </button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto space-y-2 p-3 bg-gray-50 rounded-lg mb-3">
-                      {chatMessages.map((msg, index) => (
-                        <div
-                          key={index}
-                          className={`flex ${msg.isUser ? "justify-end" : "justify-start"}`}
-                        >
-                          <div
-                            className={`max-w-[80%] p-2 rounded-lg ${
-                              msg.isUser ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-800"
-                            }`}
-                          >
-                            {msg.text}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 p-2">
-                      <input
-                        type="text"
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        placeholder="Type your message..."
-                        className="flex-1 p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <Button
-                        onClick={handleSendMessage}
-                        className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-2"
-                      >
-                        <Icon name="send" size={20} />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </div>
+          {/* Chat Interface */}
+          {isChatOpen && (
+            <ChatInterface
+              onClose={toggleChat}
+              productId={product.id}
+              variantId={product.variantId}
+              inventoryId={product.inventoryId}
+            />
+          )}
         </div>
 
         {/* Notifications */}
         {cartMessage && (
-          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-4 max-w-md w-full">
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg z-60 flex items-center gap-4 max-w-md w-full">
             <p>{cartMessage}</p>
             <button
               onClick={() => setCartMessage("")}
@@ -420,7 +393,7 @@ export default function ProductPage() {
           </div>
         )}
         {popup && (
-          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-4 max-w-md w-full">
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg z-60 flex items-center gap-4 max-w-md w-full">
             <p>{popup}</p>
             <button
               onClick={() => setPopup("")}
