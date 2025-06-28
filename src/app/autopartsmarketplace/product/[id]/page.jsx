@@ -76,10 +76,12 @@ export default function ProductPage() {
           description:
             rawProduct.productLanguages?.[0]?.longDescription ||
             "No description available for this product.",
-          specifications: rawProduct.specifications.map((spec) => ({
-            name: spec.specKey || "N/A",
-            value: spec.specValue || "N/A",
-          })),
+          specifications: Array.isArray(rawProduct.specifications)
+            ? rawProduct.specifications.map((spec) => ({
+                name: spec.specKey || "Specifications",
+                value: spec.specValue || "N/A",
+              }))
+            : [],
           images: rawProduct.productImages?.length
             ? rawProduct.productImages.map((img) => img.url)
             : ["/placeholder.svg?height=400&width=400"],
@@ -87,6 +89,7 @@ export default function ProductPage() {
           variantId: rawProduct.varients?.[0]?.id || null,
           inventoryId: rawProduct.varients?.[0]?.inventory?.id || null,
           sellerId: rawProduct.store?.id || null,
+          sellerName:rawProduct.store?.name
         };
 
         setProduct(formattedProduct);
@@ -375,6 +378,10 @@ export default function ProductPage() {
               productId={product.id}
               variantId={product.variantId}
               inventoryId={product.inventoryId}
+              productName={product.name} 
+              productImage={product.image}
+              productDescription={product.description}
+              productSeller={product.sellerName}
             />
           )}
         </div>
