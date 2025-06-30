@@ -53,7 +53,6 @@ export default function HomePage() {
           setSelectedLanguageId(languageResponse.data.data[0].id);
         }
       } else {
-        // console.log("No languages found");
         setLanguages([]);
       }
     } catch (error) {
@@ -85,9 +84,7 @@ export default function HomePage() {
       if (manufacturerResponse.data?.success && manufacturerResponse.data?.data?.length > 0) {
         setBrands(manufacturerResponse.data.data);
       } else {
-        // console.log("No manufacturers found");
         setBrands([]);
-;
       }
     } catch (error) {
       console.error("Error fetching manufacturers:", error);
@@ -134,7 +131,6 @@ export default function HomePage() {
         if (modelResponse.data?.success && modelResponse.data?.data?.length > 0) {
           setModels(modelResponse.data.data);
         } else {
-          // console.log("No models found for selected brand or filters");
           setModels([]);
         }
       } catch (error) {
@@ -211,7 +207,6 @@ export default function HomePage() {
           });
           setProducts(apiProducts);
         } else {
-          // console.log("No products found");
           setProducts([]);
         }
       } catch (error) {
@@ -290,7 +285,7 @@ export default function HomePage() {
     setModelSlideIndex(0);
     setBrands([]);
     setModels([]);
-    fetchManufacturers(); // Re-fetch brands for new language
+    fetchManufacturers();
   };
 
   const handleSearchChange = (e) => {
@@ -496,42 +491,13 @@ export default function HomePage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-white"
+                    className="text-white hover:bg-slate-700"
                     onClick={toggleFilter}
                     aria-label="Close filter popup"
                   >
                     <Icon name="x" size={16} />
                   </Button>
                 </div>
-
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-white mb-2">Language</h3>
-                  <div className="relative">
-                    <select
-                      value={selectedLanguageId || ""}
-                      onChange={(e) => handleLanguageChange(e.target.value)}
-                      className="w-full p-2 bg-slate-700 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    >
-                      {memoizedLanguages.length === 0 ? (
-                        <option value="" disabled>
-                          Loading languages...
-                        </option>
-                      ) : (
-                        memoizedLanguages.map((language) => (
-                          <option key={language.id} value={language.id}>
-                            {language.name}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                    <Icon
-                      name="globe"
-                      size={16}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                    />
-                  </div>
-                </div>
-
                 <div className="mb-6">
                   <h3 className="text-sm font-medium text-white mb-2">Title and Brand</h3>
                   <div className="w-full p-2 bg-slate-700 rounded-lg">
@@ -678,9 +644,30 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div>
+                <div className="mb-6">
                   <h3 className="text-sm font-medium text-white mb-2">Category</h3>
                   <div className="text-gray-300 text-sm">Coming soon...</div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t border-slate-700">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="bg-blue-600 text-white hover:bg-blue-700"
+                    onClick={toggleFilter}
+                    aria-label="Apply filters"
+                  >
+                    Apply
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:bg-slate-700"
+                    onClick={toggleFilter}
+                    aria-label="Close filter popup"
+                  >
+                    <Icon name="x" size={16} />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -702,16 +689,6 @@ export default function HomePage() {
                   height={200}
                   className="w-full h-40 object-cover"
                 />
-                {product.freeShipping && (
-                  <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    Free Shipping
-                  </div>
-                )}
-                {product.discount && (
-                  <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {product.discount}
-                  </div>
-                )}
                 <button
                   className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
                   onClick={(e) => toggleFavorite(e, product)}

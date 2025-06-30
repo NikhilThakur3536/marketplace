@@ -9,8 +9,8 @@ import { GlassWater, Globe } from "lucide-react";
 
 const navItems = [
   { name: "Home", path: "/autopartsmarketplace", icon: "home" },
-  { name: "Search", path: "/autopartsmarketplace/search", icon: "search" },
-  { name: "Cart", path: "/autopartsmarketplace/cart", icon: "cart" },
+  { name: "Order", path: "/autopartsmarketplace/orders", icon: "list" },
+  { name: "Fav", path: "/autopartsmarketplace/favorites", icon: "heart" },
   { name: "Profile", path: "/autopartsmarketplace/profile", icon: "user" },
 ];
 
@@ -49,15 +49,12 @@ export default function Layout({ children, title, showBackButton = false, showHe
         <header className="sticky top-0 z-50 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
-              {showBackButton ? (
+              {showBackButton && (
                 <button onClick={() => router.back()} className="text-white">
                   <Icon name="chevronLeft" size={20} />
                 </button>
-              ) : (
-                <button className="text-white">
-                  <Icon name="menu" size={20} />
-                </button>
-              )}
+              )
+              } 
               {title && <h1 className="text-lg font-medium">{title}</h1>}
               {!title && (
                 <div className="flex items-center gap-1">

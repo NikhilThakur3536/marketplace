@@ -133,14 +133,12 @@ export default function ProfilePage() {
       title: "My Orders",
       description: "Track, return, or buy things again",
       onClick: () => router.push("/autopartsmarketplace/orders"),
-      badge: "4",
     },
     {
       icon: "heart",
       title: "My Wishlist",
       description: "Products you have saved",
       onClick: () => router.push("/autopartsmarketplace/favorites"),
-      badge: "12",
     },
     {
       icon: "settings",

@@ -1,4 +1,3 @@
-// src/context/cartContext.jsx
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
@@ -14,7 +13,10 @@ export function CartProvider({ children }) {
   const fetchCartItemCount = async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) return;
+      if (!token) {
+        setCartItemCount(0);
+        return;
+      }
 
       const response = await axios.post(
         `${BASE_URL}/user/cart/listv2`,
@@ -27,10 +29,11 @@ export function CartProvider({ children }) {
         }
       );
 
-      // console.log("Fetch cart count response:", response.data); // Debug
       if (response.data?.success) {
         const items = response.data.data.rows || [];
-        setCartItemCount(items.length);
+        // Sum the quantity of each item to get total item count
+        const totalItemCount = items.reduce((sum, item) => sum + (Math.floor(item.quantity) || 0), 0);
+        setCartItemCount(totalItemCount);
       } else {
         setCartItemCount(0);
       }

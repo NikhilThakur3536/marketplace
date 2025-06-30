@@ -251,11 +251,11 @@ export default function FavoritesPage() {
                         height={96}
                         className="w-full h-full object-cover"
                       />
-                      {item.discount && (
+                      {/* {item.discount && (
                         <Badge variant="danger" className="absolute top-1 left-1 text-xs">
                           {item.discount}
                         </Badge>
-                      )}
+                      )} */}
                     </div>
                     <div className="flex-1 p-3">
                       <div className="cursor-pointer" onClick={() => router.push(`/autopartsmarketplace/product/${item.id}`)}>
