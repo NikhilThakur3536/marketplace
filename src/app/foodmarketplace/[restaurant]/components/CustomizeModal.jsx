@@ -83,7 +83,7 @@ export default function CustomizeModal({ item, isOpen, onClose, addToCart }) {
   const handleAddToCart = async () => {
     setError(null);
     try {
-      const token = localStorage.getItem("userToken");
+      const token = localStorage.getItem("token");
       if (!token) {
         setShowAuthPopup(true); 
         return;

@@ -14,7 +14,7 @@ const ProductCard = ({ product }) => {
 
   const toggleFavorite = async (e) => {
     e.stopPropagation();
-    const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) {
       if (typeof window !== "undefined") {
         localStorage.setItem("redirectUrl", "/electronicsmarketplace");

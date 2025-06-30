@@ -266,7 +266,7 @@ export default function Restaurants() {
       let errorMessage = "Failed to load restaurant data. Please try again.";
       if (error.response?.status === 401) {
         errorMessage = "Authentication failed. Please log in again.";
-        localStorage.removeItem("usertoken");
+        localStorage.removeItem("token");
         router.push("/login");
       } else if (error.response?.status === 404) {
         errorMessage = `Restaurant not found for ID: ${id}`;

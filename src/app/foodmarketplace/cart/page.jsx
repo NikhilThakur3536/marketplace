@@ -57,7 +57,7 @@ export default function Cart() {
   // Fetch initial data
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('userToken');
+      const token = localStorage.getItem('token');
       if (token) {
         dispatch(fetchCartItems());
         dispatch(fetchUserAddress());

@@ -16,7 +16,7 @@ const Favorites = () => {
 
   useEffect(() => {
     const fetchFavorites = async () => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       if (!token) {
         if (typeof window !== 'undefined') {
           localStorage.setItem('redirectUrl', '/electronicsmarketplace/favorites');
@@ -86,7 +86,7 @@ const Favorites = () => {
   };
 
   const removeFromFavorites = async (id) => {
-    const token = localStorage.getItem('userToken');
+    const token = localStorage.getItem('token');
     if (!token) {
       setShowPopup({
         type: 'error',

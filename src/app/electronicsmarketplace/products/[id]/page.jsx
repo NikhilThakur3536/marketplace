@@ -15,7 +15,7 @@ const ProductCard = ({ product }) => {
 
   const toggleFavorite = async (e) => {
     e.stopPropagation();
-    const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) {
       if (typeof window !== "undefined") {
         localStorage.setItem("redirectUrl", "/electronicsmarketplace");
@@ -245,7 +245,7 @@ export default function ProductPage() {
       if (!product?.categoryId) return;
 
       try {
-        const token = localStorage.getItem("userToken");
+        const token = localStorage.getItem("token");
         if (!token) {
           console.warn("No token found for fetching related products.");
           return;
@@ -294,7 +294,7 @@ export default function ProductPage() {
   };
 
   const addToCart = async () => {
-    const token = localStorage.getItem("userToken");
+    const token = localStorage.getItem("token");
     if (!token) {
       setShowAuthPopup(true);
       return;

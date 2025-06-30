@@ -15,7 +15,7 @@ export default function  ChatInterface ({ onClose, participantId = "d7a34198-0ef
   };
 
   useEffect(() => {
-    const userToken = localStorage.getItem("userToken");
+    const userToken = localStorage.getItem("token");
     if (userToken) {
       setToken(userToken);
       axios.defaults.headers.common["Authorization"] = `Bearer ${userToken}`;

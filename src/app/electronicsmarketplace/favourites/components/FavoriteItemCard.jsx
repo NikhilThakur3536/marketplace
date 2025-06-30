@@ -8,7 +8,7 @@ const FavoriteItemCard = ({ item, onUpdateQuantity, onRemoveFromFavorites, setSh
 
   const handleAddToCart = async () => {
     console.log(item)
-    const token = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (!token) {
       console.error('No token found, please log in.');
       setShowPopup({
