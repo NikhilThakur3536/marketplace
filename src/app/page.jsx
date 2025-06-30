@@ -67,7 +67,7 @@ export default function MarketplaceSelection() {
       <h1>Select Your Marketplace</h1>
       {error && <p className="text-red-500">{error}</p>}
       <div className="buttonContainer">
-        <button
+        {/* <button
           onClick={() => handleNavigation('foodmarketplace', FOOD_DOMAIN_ID,FOOD_DEVICE_ID,FOOD_DEVICE_TOKEN)}
           className="p-2 bg-blue-100"
           disabled={isLoading}
@@ -80,7 +80,7 @@ export default function MarketplaceSelection() {
           disabled={isLoading}
         >
           {isLoading ? 'Loading...' : 'Electronics Marketplace'}
-        </button>
+        </button> */}
         <button
           onClick={() => handleNavigation('autopartsmarketplace',AUTO_DOMAIN_ID,AUTO_DEVICE_ID,AUTO_DEVICE_TOKEN)}
           className="p-2 bg-yellow-100"

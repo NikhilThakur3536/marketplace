@@ -11,7 +11,7 @@ import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import { useCart } from "../../context/cartContext";
 import { useChat } from "../../context/chatContext";
-import { useLanguage } from "../../context/languageContext"; // Import LanguageContext
+import { useLanguage } from "../../context/languageContext";
 import ChatInterface from "../../components/ChatInterface";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
@@ -19,9 +19,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.
 export default function ProductPage() {
   const router = useRouter();
   const { id } = useParams();
-  const { cartItemCount, fetchCartItemCount } = useCart();
+  const { totalCartItems, fetchCartItemCount, addToCart, updateCartQuantity } = useCart();
   const { initiateChat, chatError } = useChat();
-  const { selectedLanguageId } = useLanguage(); // Access selectedLanguageId from context
+  const { selectedLanguageId } = useLanguage();
   const [quantity, setQuantity] = useState(1);
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +29,7 @@ export default function ProductPage() {
   const [cartMessage, setCartMessage] = useState("");
   const [popup, setPopup] = useState("");
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isInCart, setIsInCart] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -45,7 +46,7 @@ export default function ProductPage() {
         const payload = {
           limit: 4000,
           offset: 0,
-          languageId: selectedLanguageId, // Use selectedLanguageId from context
+          languageId: selectedLanguageId,
         };
 
         const response = await axios.post(`${BASE_URL}/user/product/listv2`, payload, {
@@ -100,6 +101,24 @@ export default function ProductPage() {
           sellerName: rawProduct.store?.name,
         };
 
+        // Check if item is in cart and sync quantity
+        const cartResponse = await axios.post(
+          `${BASE_URL}/user/cart/listv2`,
+          { languageId: selectedLanguageId },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const cartItems = cartResponse.data?.data?.rows || [];
+        const existingItem = cartItems.find(
+          (item) => item.product?.id === formattedProduct.id && item.varientId === formattedProduct.variantId
+        );
+        setIsInCart(!!existingItem);
+        setQuantity(existingItem ? parseInt(existingItem.quantity, 10) : 1);
+
         setProduct(formattedProduct);
       } catch (err) {
         console.error("Error fetching product:", err.message);
@@ -112,19 +131,79 @@ export default function ProductPage() {
     if (id) {
       fetchProduct();
     }
-  }, [id, router, selectedLanguageId]); // Add selectedLanguageId to dependencies
+  }, [id, router, selectedLanguageId]);
 
-  const incrementQuantity = () => {
-    setQuantity((prev) => prev + 1);
-  };
-
-  const decrementQuantity = () => {
-    if (quantity > 1) {
-      setQuantity((prev) => prev - 1);
+  const incrementQuantity = async () => {
+    const newQuantity = quantity + 1;
+    setQuantity(newQuantity);
+    if (isInCart) {
+      try {
+        const token = localStorage.getItem("token");
+        const cartResponse = await axios.post(
+          `${BASE_URL}/user/cart/listv2`,
+          { languageId: selectedLanguageId },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const cartItems = cartResponse.data?.data?.rows || [];
+        const existingItem = cartItems.find(
+          (item) => item.product?.id === product.id && item.varientId === product.variantId
+        );
+        if (existingItem) {
+          await updateCartQuantity({ cartId: existingItem.id, quantity: newQuantity });
+          setCartMessage(`${product.name} quantity updated in cart!`);
+        }
+      } catch (err) {
+        console.error("Error updating quantity:", err.message);
+        setCartMessage("Failed to update quantity. Please try again.");
+        setQuantity(quantity); // Revert on failure
+      } finally {
+        setTimeout(() => setCartMessage(""), 3000);
+      }
     }
   };
 
-  const addToCart = async () => {
+  const decrementQuantity = async () => {
+    if (quantity > 1) {
+      const newQuantity = quantity - 1;
+      setQuantity(newQuantity);
+      if (isInCart) {
+        try {
+          const token = localStorage.getItem("token");
+          const cartResponse = await axios.post(
+            `${BASE_URL}/user/cart/listv2`,
+            { languageId: selectedLanguageId },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          const cartItems = cartResponse.data?.data?.rows || [];
+          const existingItem = cartItems.find(
+            (item) => item.product?.id === product.id && item.varientId === product.variantId
+          );
+          if (existingItem) {
+            await updateCartQuantity({ cartId: existingItem.id, quantity: newQuantity });
+            setCartMessage(`${product.name} quantity updated in cart!`);
+          }
+        } catch (err) {
+          console.error("Error updating quantity:", err.message);
+          setCartMessage("Failed to update quantity. Please try again.");
+          setQuantity(quantity); // Revert on failure
+        } finally {
+          setTimeout(() => setCartMessage(""), 3000);
+        }
+      }
+    }
+  };
+
+  const handleAddToCart = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
       setPopup("Please log in to add item to cart.");
@@ -137,55 +216,14 @@ export default function ProductPage() {
     try {
       if (!product?.variantId) throw new Error("Variant ID not found.");
 
-      const cartResponse = await axios.post(
-        `${BASE_URL}/user/cart/listv2`,
-        { languageId: selectedLanguageId }, // Use selectedLanguageId
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      await addToCart({
+        productId: product.id,
+        quantity,
+        varientId: product.variantId,
+      });
 
-      const cartItems = cartResponse.data?.data?.rows || [];
-      const existingItem = cartItems.find(
-        (item) => item.product?.id === product.id && item.varientId === product.variantId
-      );
-
-      if (existingItem) {
-        const newQuantity = existingItem.quantity + quantity;
-        await axios.post(
-          `${BASE_URL}/user/cart/edit`,
-          {
-            cartId: existingItem.id,
-            quantity: newQuantity,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        setCartMessage(`${product.name} quantity updated in cart!`);
-      } else {
-        const cartItem = {
-          productId: product.id,
-          quantity,
-          varientId: product.variantId,
-        };
-
-        await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-        setCartMessage(`${product.name} added successfully to cart!`);
-      }
-
-      await fetchCartItemCount();
+      setCartMessage(`${product.name} added successfully to cart!`);
+      setIsInCart(true); // Update cart status
     } catch (err) {
       console.error("Error adding to cart:", err.message);
       setCartMessage("Failed to add to cart. Please try again.");
@@ -227,7 +265,7 @@ export default function ProductPage() {
 
   if (loading) {
     return (
-      <Layout showBackButton title="Product Details" cartItemCount={cartItemCount}>
+      <Layout showBackButton title="Product Details" cartItemCount={totalCartItems}>
         <div className="p-6 text-center text-gray-500">Loading product...</div>
       </Layout>
     );
@@ -235,7 +273,7 @@ export default function ProductPage() {
 
   if (error) {
     return (
-      <Layout showBackButton title="Product Details" cartItemCount={cartItemCount}>
+      <Layout showBackButton title="Product Details" cartItemCount={totalCartItems}>
         <div className="p-6 text-center text-red-500">{error}</div>
       </Layout>
     );
@@ -243,14 +281,14 @@ export default function ProductPage() {
 
   if (!product) {
     return (
-      <Layout showBackButton title="Product Details" cartItemCount={cartItemCount}>
+      <Layout showBackButton title="Product Details" cartItemCount={totalCartItems}>
         <div className="p-6 text-center text-gray-500">Product not found.</div>
       </Layout>
     );
   }
 
   return (
-    <Layout showBackButton title="Product Details" cartItemCount={cartItemCount}>
+    <Layout showBackButton title="Product Details" cartItemCount={totalCartItems}>
       <div className="p-6 max-w-md mx-auto">
         <div className="grid grid-cols-1 gap-6">
           {/* Product Images and Info */}
@@ -325,13 +363,15 @@ export default function ProductPage() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <Button
-                    variant="primary"
-                    className="w-full bg-blue-600 hover:bg-blue-700 transition text-white"
-                    onClick={addToCart}
-                  >
-                    Add to Cart
-                  </Button>
+                  {!isInCart && (
+                    <Button
+                      variant="primary"
+                      className="w-full bg-blue-600 hover:bg-blue-700 transition text-white"
+                      onClick={handleAddToCart}
+                    >
+                      Add to Cart
+                    </Button>
+                  )}
                   <Button
                     onClick={toggleChat}
                     className="w-full bg-blue-600 hover:bg-blue-700 transition text-white flex items-center justify-center gap-2"
@@ -362,8 +402,8 @@ export default function ProductPage() {
                         <span className="text-white">{spec.value}</span>
                       </div>
                     ))}
-                    </div>
-                  </CardContent>
+                  </div>
+                </CardContent>
               </Card>
 
               <Card className="bg-slate-800/50 backdrop-blur-sm">
