@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCart } from "../context/cartContext";
 import { useLanguage } from "../context/languageContext";
 import { Globe, MessageSquare } from "lucide-react"; // Added MessageSquare import
-import { FavoriteProvider } from "../context/FavoriteContext";
+import { FavoriteProvider } from "../context/favoriteContext";
 
 const navItems = [
   { name: "Home", path: "/autopartsmarketplace", icon: "home" },
