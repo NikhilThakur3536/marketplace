@@ -66,7 +66,6 @@ export function ChatProvider({ children }) {
           const chatProductId = existingChat.chatProducts?.[0]?.id || null;
           return { chatId: existingChat.id, chatProductId };
         }
-        setChatError("No matching chat found for this product");
         return { chatId: null, chatProductId: null };
       } catch (err) {
         const errorMessage = err.response?.data?.message || err.message;

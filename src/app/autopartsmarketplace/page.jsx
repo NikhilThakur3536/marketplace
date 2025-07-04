@@ -10,13 +10,15 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import debounce from "lodash/debounce";
 import { useLanguage } from "./context/languageContext";
+import { useFavorite } from "./context/favoriteContext";
+import { Toaster } from "react-hot-toast";
 
 export default function HomePage() {
   const router = useRouter();
   const { selectedLanguageId, setSelectedLanguageId } = useLanguage();
+  const { isFavorite, toggleFavorite, showPopup } = useFavorite();
   const [viewMode, setViewMode] = useState("grid");
   const [products, setProducts] = useState([]);
-  const [showPopup, setShowPopup] = useState(null);
   const [brands, setBrands] = useState([]);
   const [models, setModels] = useState([]);
   const [languages, setLanguages] = useState([]);
@@ -26,8 +28,7 @@ export default function HomePage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [brandSlideIndex, setBrandSlideIndex] = useState(0);
   const [modelSlideIndex, setModelSlideIndex] = useState(0);
-  const [yearStart, setYearStart] = useState(null);
-  const [yearEnd, setYearEnd] = useState(null);
+  const [localShowPopup, setLocalShowPopup] = useState(null);
 
   const itemsPerSlide = 6;
 
@@ -57,11 +58,11 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error("Error fetching languages:", error);
-      setShowPopup({
+      setLocalShowPopup({
         type: "error",
         message: error.response?.data?.message || "Failed to load languages.",
       });
-      setTimeout(() => setShowPopup(null), 3000);
+      setTimeout(() => setLocalShowPopup(null), 3000);
     }
   }, [router, selectedLanguageId, setSelectedLanguageId]);
 
@@ -88,17 +89,17 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error("Error fetching manufacturers:", error);
-      setShowPopup({
+      setLocalShowPopup({
         type: "error",
         message: error.response?.data?.message || "Failed to load manufacturers.",
       });
-      setTimeout(() => setShowPopup(null), 3000);
+      setTimeout(() => setLocalShowPopup(null), 3000);
     }
   }, [router]);
 
   // Fetch models when brand is selected
   const fetchModels = useCallback(
-    debounce(async (brandId, search, yearStart, yearEnd) => {
+    debounce(async (brandId, search) => {
       try {
         const token = localStorage.getItem("token");
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
@@ -115,12 +116,6 @@ export default function HomePage() {
         if (search) {
           modelPayload.name = search;
         }
-        if (yearStart) {
-          modelPayload.yearStart = parseInt(yearStart);
-        }
-        if (yearEnd) {
-          modelPayload.yearEnd = parseInt(yearEnd);
-        }
 
         const modelResponse = await axios.post(
           `${BASE_URL}/user/productModel/list`,
@@ -135,11 +130,11 @@ export default function HomePage() {
         }
       } catch (error) {
         console.error("Error fetching models:", error);
-        setShowPopup({
+        setLocalShowPopup({
           type: "error",
           message: error.response?.data?.message || "Failed to load models.",
         });
-        setTimeout(() => setShowPopup(null), 3000);
+        setTimeout(() => setLocalShowPopup(null), 3000);
       }
     }, 300),
     [router]
@@ -201,8 +196,9 @@ export default function HomePage() {
               image: product.productImages?.[0]?.url || "/placeholder.svg?height=200&width=200",
               freeShipping: true,
               inStock: parseFloat(variant?.inventory?.quantity || 0) > 0,
-              isFavorite: false,
+              isFavorite: isFavorite(product.id),
               variantId: variant?.id || null,
+              productVarientUomId: product.variant?.productVarientUom?.[0]?.id || null,
             };
           });
           setProducts(apiProducts);
@@ -211,14 +207,14 @@ export default function HomePage() {
         }
       } catch (error) {
         console.error("Error fetching products:", error);
-        setShowPopup({
+        setLocalShowPopup({
           type: "error",
           message: error.response?.data?.message || "Failed to load products.",
         });
-        setTimeout(() => setShowPopup(null), 3000);
+        setTimeout(() => setLocalShowPopup(null), 3000);
       }
     }, 300),
-    [router, selectedLanguageId]
+    [router, selectedLanguageId, isFavorite]
   );
 
   // Fetch languages and manufacturers on mount
@@ -227,14 +223,14 @@ export default function HomePage() {
     fetchManufacturers();
   }, [fetchLanguages, fetchManufacturers]);
 
-  // Fetch models when brand or filters change
+  // Fetch models when brand or search term changes
   useEffect(() => {
     if (selectedBrandId) {
-      fetchModels(selectedBrandId, searchTerm, yearStart, yearEnd);
+      fetchModels(selectedBrandId, searchTerm);
     } else {
       setModels([]);
     }
-  }, [selectedBrandId, searchTerm, yearStart, yearEnd, fetchModels]);
+  }, [selectedBrandId, searchTerm, fetchModels]);
 
   useEffect(() => {
     if (selectedLanguageId) {
@@ -245,24 +241,6 @@ export default function HomePage() {
   // Memoize brands and languages to prevent reference changes
   const memoizedBrands = useMemo(() => brands, [brands]);
   const memoizedLanguages = useMemo(() => languages, [languages]);
-
-  const handleYearChange = (type, value) => {
-    const year = value ? parseInt(value) : null;
-    const currentYear = new Date().getFullYear() + 1;
-    if (year && (year < 1900 || year > currentYear)) {
-      setShowPopup({
-        type: "error",
-        message: `Please enter a valid year between 1900 and ${currentYear}.`,
-      });
-      setTimeout(() => setShowPopup(null), 3000);
-      return;
-    }
-    if (type === "start") {
-      setYearStart(year);
-    } else {
-      setYearEnd(year);
-    }
-  };
 
   const handleBrandClick = (brand) => {
     setSelectedBrandId(brand.id);
@@ -279,8 +257,6 @@ export default function HomePage() {
     setSelectedBrandId(null);
     setSelectedModelId(null);
     setSearchTerm("");
-    setYearStart(null);
-    setYearEnd(null);
     setBrandSlideIndex(0);
     setModelSlideIndex(0);
     setBrands([]);
@@ -292,8 +268,14 @@ export default function HomePage() {
     setSearchTerm(e.target.value);
     setSelectedBrandId(null);
     setSelectedModelId(null);
-    setYearStart(null);
-    setYearEnd(null);
+    setBrandSlideIndex(0);
+    setModelSlideIndex(0);
+  };
+
+  const clearFilters = () => {
+    setSelectedBrandId(null);
+    setSelectedModelId(null);
+    setSearchTerm("");
     setBrandSlideIndex(0);
     setModelSlideIndex(0);
   };
@@ -302,9 +284,12 @@ export default function HomePage() {
     const token = localStorage.getItem("token");
     const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
     if (!token) {
-      setShowPopup({ type: "error", message: "Please log in to add item to cart." });
+      setLocalShowPopup({
+        type: "error",
+        message: "Please log in to add item to cart.",
+      });
       setTimeout(() => {
-        setShowPopup(null);
+        setLocalShowPopup(null);
         router.push("/autopartsmarketplace/login");
       }, 1000);
       return;
@@ -327,69 +312,28 @@ export default function HomePage() {
           { cartId: existingItem.id, quantity: newQuantity },
           { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
         );
-        setShowPopup({ type: "success", message: `${product.name} quantity updated in cart!` });
+        setLocalShowPopup({
+          type: "success",
+          message: `${product.name} quantity updated in cart!`,
+        });
       } else {
         const cartItem = { productId: product.id, quantity: 1, varientId: product.variantId };
         await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
-        setShowPopup({ type: "success", message: `${product.name} added successfully to cart!` });
+        setLocalShowPopup({
+          type: "success",
+          message: `${product.name} added successfully to cart!`,
+        });
       }
     } catch (err) {
       console.error("Error adding to cart:", err.message);
-      setShowPopup({ type: "error", message: "Failed to add to cart. Please try again." });
+      setLocalShowPopup({
+        type: "error",
+        message: "Failed to add to cart. Please try again.",
+      });
     } finally {
-      setTimeout(() => setShowPopup(null), 3000);
-    }
-  };
-
-  const toggleFavorite = async (e, product) => {
-    e.stopPropagation();
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
-
-    if (!token) {
-      if (typeof window !== "undefined") {
-        localStorage.setItem("redirectUrl", "/autopartsmarketplace");
-      }
-      setShowPopup({
-        type: "error",
-        message: "Please log in to manage favorites.",
-      });
-      setTimeout(() => {
-        setShowPopup(null);
-        router.push("/autopartsmarketplace/login");
-      }, 2000);
-      return;
-    }
-
-    const newFavoriteState = !product.isFavorite;
-    const endpoint = newFavoriteState ? "/user/favoriteProduct/add" : "/user/favoriteProduct/remove";
-    const action = newFavoriteState ? "added to" : "removed from";
-
-    try {
-      await axios.post(
-        `${BASE_URL}${endpoint}`,
-        { productId: product.id },
-        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
-      );
-
-      setProducts((prevProducts) =>
-        prevProducts.map((p) => (p.id === product.id ? { ...p, isFavorite: newFavoriteState } : p))
-      );
-
-      setShowPopup({
-        type: "success",
-        message: `Product ${action} favorites.`,
-      });
-      setTimeout(() => setShowPopup(null), 2000);
-    } catch (error) {
-      console.error(`Error ${action} favorite:`, error);
-      setShowPopup({
-        type: "error",
-        message: error.response?.data?.message || `Failed to ${action} favorites.`,
-      });
-      setTimeout(() => setShowPopup(null), 3000);
+      setTimeout(() => setLocalShowPopup(null), 3000);
     }
   };
 
@@ -420,13 +364,14 @@ export default function HomePage() {
   return (
     <Layout>
       <div className="p-4">
-        {showPopup && (
+        <Toaster />
+        {(localShowPopup || showPopup) && (
           <div
             className={`fixed top-4 right-4 p-4 rounded-lg text-white ${
-              showPopup.type === "success" ? "bg-green-600" : "bg-red-600"
+              (localShowPopup || showPopup).type === "success" ? "bg-green-600" : "bg-red-600"
             }`}
           >
-            {showPopup.message}
+            {(localShowPopup || showPopup).message}
           </div>
         )}
 
@@ -482,7 +427,7 @@ export default function HomePage() {
               aria-hidden="true"
             ></div>
             <div
-              className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 max-w-md w-full bg-slate-800 rounded-lg z-50 overflow-y-auto max-h-[80vh]"
+              className="fixed bottom-0 left-1/2 transform -translate-x-1/2 max-w-md w-full bg-slate-800 rounded-t-lg z-50 overflow-y-auto max-h-[80vh]"
               aria-hidden={!isFilterOpen}
             >
               <div className="p-4">
@@ -624,50 +569,27 @@ export default function HomePage() {
                   )}
                 </div>
 
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-white mb-2">Year Range</h3>
+                <div className="flex justify-between gap-2 pt-4 border-t border-slate-700">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-slate-700 text-white hover:bg-slate-600"
+                    onClick={clearFilters}
+                    aria-label="Clear filters"
+                  >
+                    Clear Filters
+                  </Button>
                   <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Start Year"
-                      value={yearStart || ""}
-                      onChange={(e) => handleYearChange("start", e.target.value)}
-                      className="bg-slate-700 text-white border-slate-600"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="End Year"
-                      value={yearEnd || ""}
-                      onChange={(e) => handleYearChange("end", e.target.value)}
-                      className="bg-slate-700 text-white border-slate-600"
-                    />
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="bg-blue-600 text-white hover:bg-blue-700"
+                      onClick={toggleFilter}
+                      aria-label="Apply filters"
+                    >
+                      Apply
+                    </Button>
                   </div>
-                </div>
-
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-white mb-2">Category</h3>
-                  <div className="text-gray-300 text-sm">Coming soon...</div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4 border-t border-slate-700">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className="bg-blue-600 text-white hover:bg-blue-700"
-                    onClick={toggleFilter}
-                    aria-label="Apply filters"
-                  >
-                    Apply
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-slate-700"
-                    onClick={toggleFilter}
-                    aria-label="Close filter popup"
-                  >
-                    <Icon name="x" size={16} />
-                  </Button>
                 </div>
               </div>
             </div>
@@ -691,7 +613,13 @@ export default function HomePage() {
                 />
                 <button
                   className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
-                  onClick={(e) => toggleFavorite(e, product)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite({
+                      productId: product.id,
+                      name: product.name,
+                    });
+                  }}
                 >
                   <Icon
                     name="heart"

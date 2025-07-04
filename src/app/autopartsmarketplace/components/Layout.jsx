@@ -1,17 +1,18 @@
-// In Layout.js
 import React, { useState, useEffect, useRef } from "react";
 import { Icon } from "./Icon";
 import { Badge } from "./Badge";
 import { usePathname, useRouter } from "next/navigation";
 import { useCart } from "../context/cartContext";
 import { useLanguage } from "../context/languageContext";
-import { GlassWater, Globe } from "lucide-react";
+import { Globe, MessageSquare } from "lucide-react"; // Added MessageSquare import
+import { FavoriteProvider } from "../context/FavoriteContext";
 
 const navItems = [
   { name: "Home", path: "/autopartsmarketplace", icon: "home" },
   { name: "Order", path: "/autopartsmarketplace/orders", icon: "list" },
   { name: "Fav", path: "/autopartsmarketplace/favorites", icon: "heart" },
   { name: "Profile", path: "/autopartsmarketplace/profile", icon: "user" },
+  { name: "Chat", path: "/autopartsmarketplace/chat", icon: "MessageSquare" }, // Added Chat nav item
 ];
 
 export default function Layout({ children, title, showBackButton = false, showHeader = true, showFooter = true }) {
@@ -53,8 +54,7 @@ export default function Layout({ children, title, showBackButton = false, showHe
                 <button onClick={() => router.back()} className="text-white">
                   <Icon name="chevronLeft" size={20} />
                 </button>
-              )
-              } 
+              )}
               {title && <h1 className="text-lg font-medium">{title}</h1>}
               {!title && (
                 <div className="flex items-center gap-1">
@@ -99,7 +99,7 @@ export default function Layout({ children, title, showBackButton = false, showHe
                 )}
               </div>
               <button
-                className="relative"
+                className="relative"  
                 onClick={() => router.push("/autopartsmarketplace/cart")}
               >
                 <Icon name="cart" size={20} />
@@ -116,7 +116,11 @@ export default function Layout({ children, title, showBackButton = false, showHe
           </div>
         </header>
       )}
-      <main className="pb-20">{children}</main>
+      <main className="pb-20">
+        <FavoriteProvider marketplace="autopartsmarketplace">
+          {children}
+        </FavoriteProvider>
+      </main>
 
       {showFooter && (
         <footer className="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 p-2 max-w-md mx-auto">
@@ -132,7 +136,11 @@ export default function Layout({ children, title, showBackButton = false, showHe
                   }`}
                 >
                   <div className={isActive ? "relative" : ""}>
-                    <Icon name={item.icon} size={20} />
+                    {item.icon === "MessageSquare" ? (
+                      <MessageSquare size={20} /> // Use Lucide MessageSquare for Chat
+                    ) : (
+                      <Icon name={item.icon} size={20} />
+                    )}
                     {isActive && (
                       <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-400 rounded-full"></span>
                     )}

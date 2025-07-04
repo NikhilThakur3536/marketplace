@@ -66,7 +66,6 @@ export default function Chats() {
               lastMessage = latestMessage.messageText || "No message text";
             }
           } catch (err) {
-            console.error(`Failed to fetch messages for chat ${chat.id}:`, err);
           }
 
           return {
