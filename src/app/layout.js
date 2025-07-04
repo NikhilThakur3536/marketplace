@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Provider } from 'react-redux';
 import { store } from '../Store';
+import { AuthProvider } from "./autopartsmarketplace/context/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +28,9 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
       <Provider store={store}>  
+        <AuthProvider marketplace={"autopartsmarketplace"}>
         {children}
+        </AuthProvider>
       </Provider>  
       </body>
     </html>

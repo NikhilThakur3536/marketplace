@@ -86,18 +86,7 @@ export const FavoriteProvider = ({ children, marketplace }) => {
 
   const toggleFavorite = async ({ productId, productVarientUomId, name }) => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      localStorage.setItem("redirectUrl", `/${marketplace}/login`);
-      setShowPopup({
-        type: "error",
-        message: "Please log in to add or remove from favorites.",
-      });
-      setTimeout(() => {
-        setShowPopup(null);
-        router.push(`/${marketplace}/login`);
-      }, 500);
-      return;
-    }
+
 
     try {
       const isCurrentlyFavorite = isFavorite(productId);
