@@ -24,18 +24,7 @@ export const FavoriteProvider = ({ children, marketplace }) => {
   const fetchFavorites = async () => {
     const token = localStorage.getItem("token");
     const lang = localStorage.getItem("selectedLanguage");
-    if (!token) {
-      console.log("No token, redirecting to login");
-      setShowPopup({
-        type: "error",
-        message: "Please log in to view your favorites.",
-      });
-      setTimeout(() => {
-        setShowPopup(null);
-        router.push(`/${marketplace}/login`);
-      }, 2000);
-      return;
-    }
+   
 
     setLoading(true);
     try {
