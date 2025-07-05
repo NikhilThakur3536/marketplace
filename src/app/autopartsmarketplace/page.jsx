@@ -37,10 +37,7 @@ export default function HomePage() {
     try {
       const token = localStorage.getItem("token");
       const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
-      if (!token) {
-        router.push("/autopartsmarketplace/login");
-        return;
-      }
+      
 
       const languageResponse = await axios.post(
         `${BASE_URL}/user/language/list`,
@@ -71,10 +68,7 @@ export default function HomePage() {
     try {
       const token = localStorage.getItem("token");
       const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
-      if (!token) {
-        router.push("/autopartsmarketplace/login");
-        return;
-      }
+      
 
       const manufacturerResponse = await axios.post(
         `${BASE_URL}/user/manufacturer/list`,
@@ -103,10 +97,7 @@ export default function HomePage() {
       try {
         const token = localStorage.getItem("token");
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
-        if (!token || !brandId) {
-          setModels([]);
-          return;
-        }
+  
 
         const modelPayload = {
           limit: 10,
@@ -146,10 +137,6 @@ export default function HomePage() {
       try {
         const token = localStorage.getItem("token");
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
-        if (!token) {
-          router.push("/autopartsmarketplace/login");
-          return;
-        }
 
         const productPayload = {
           limit: 4000,

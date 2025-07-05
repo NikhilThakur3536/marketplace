@@ -6,6 +6,7 @@ import { useCart } from "../context/cartContext";
 import { useLanguage } from "../context/languageContext";
 import { Globe, MessageSquare } from "lucide-react"; // Added MessageSquare import
 import { FavoriteProvider } from "../context/favoriteContext";
+import Breadcrumbs from "./BreadCrumbs";
 
 const navItems = [
   { name: "Home", path: "/autopartsmarketplace", icon: "home" },
@@ -46,6 +47,8 @@ export default function Layout({ children, title, showBackButton = false, showHe
 
   return (
     <div className="min-h-screen bg-slate-900 text-white max-w-md mx-auto relative">
+                  <Breadcrumbs/>
+
       {showHeader && (
         <header className="sticky top-0 z-50 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700">
           <div className="flex items-center justify-between p-4">
