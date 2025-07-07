@@ -11,12 +11,14 @@ import axios from "axios";
 import debounce from "lodash/debounce";
 import { useLanguage } from "./context/languageContext";
 import { useFavorite } from "./context/favoriteContext";
+import { useCart } from "./context/cartContext";
 import { Toaster } from "react-hot-toast";
 
 export default function HomePage() {
   const router = useRouter();
   const { selectedLanguageId, setSelectedLanguageId } = useLanguage();
   const { isFavorite, toggleFavorite, showPopup } = useFavorite();
+  const { addToCart, updateCartQuantity, fetchCartItemCount } = useCart();
   const [viewMode, setViewMode] = useState("grid");
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -29,22 +31,20 @@ export default function HomePage() {
   const [brandSlideIndex, setBrandSlideIndex] = useState(0);
   const [modelSlideIndex, setModelSlideIndex] = useState(0);
   const [localShowPopup, setLocalShowPopup] = useState(null);
-
+  const [cartItems, setCartItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true); // New state for loading
   const itemsPerSlide = 6;
 
-  // Fetch languages on mount
+  // Fetch languages
   const fetchLanguages = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
       const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
-      
-
       const languageResponse = await axios.post(
         `${BASE_URL}/user/language/list`,
         { limit: 10, offset: 0 },
         { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
       );
-
       if (languageResponse.data?.success && languageResponse.data?.data?.length > 0) {
         setLanguages(languageResponse.data.data);
         if (!selectedLanguageId) {
@@ -61,21 +61,18 @@ export default function HomePage() {
       });
       setTimeout(() => setLocalShowPopup(null), 3000);
     }
-  }, [router, selectedLanguageId, setSelectedLanguageId]);
+  }, [selectedLanguageId, setSelectedLanguageId]);
 
-  // Fetch manufacturers on mount or language change
+  // Fetch manufacturers
   const fetchManufacturers = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
       const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
-      
-
       const manufacturerResponse = await axios.post(
         `${BASE_URL}/user/manufacturer/list`,
         { limit: 10, offset: 0 },
         { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
       );
-
       if (manufacturerResponse.data?.success && manufacturerResponse.data?.data?.length > 0) {
         setBrands(manufacturerResponse.data.data);
       } else {
@@ -89,16 +86,14 @@ export default function HomePage() {
       });
       setTimeout(() => setLocalShowPopup(null), 3000);
     }
-  }, [router]);
+  }, []);
 
-  // Fetch models when brand is selected
+  // Fetch models
   const fetchModels = useCallback(
     debounce(async (brandId, search) => {
       try {
         const token = localStorage.getItem("token");
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
-  
-
         const modelPayload = {
           limit: 10,
           offset: 0,
@@ -107,13 +102,11 @@ export default function HomePage() {
         if (search) {
           modelPayload.name = search;
         }
-
         const modelResponse = await axios.post(
           `${BASE_URL}/user/productModel/list`,
           modelPayload,
           { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
         );
-
         if (modelResponse.data?.success && modelResponse.data?.data?.length > 0) {
           setModels(modelResponse.data.data);
         } else {
@@ -128,16 +121,40 @@ export default function HomePage() {
         setTimeout(() => setLocalShowPopup(null), 3000);
       }
     }, 300),
-    [router]
+    []
   );
+
+  // Fetch cart items
+  const fetchCartItems = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
+      if (!token) {
+        setCartItems([]);
+        return;
+      }
+      const cartResponse = await axios.post(
+        `${BASE_URL}/user/cart/listv2`,
+        { languageId: selectedLanguageId },
+        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+      );
+      ificultura: if (cartResponse.data?.success) {
+        setCartItems(cartResponse.data.data.rows || []);
+      } else {
+        setCartItems([]);
+      }
+    } catch (err) {
+      console.error("Error fetching cart items:", err.message);
+      setCartItems([]);
+    }
+  }, [selectedLanguageId]);
 
   // Fetch products
   const fetchProducts = useCallback(
-    debounce(async (search, brandId, modelId) => {
+    debounce(async (search, brandId, modelId, cartItems) => {
       try {
         const token = localStorage.getItem("token");
         const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
-
         const productPayload = {
           limit: 4000,
           offset: 0,
@@ -152,19 +169,20 @@ export default function HomePage() {
         if (search && !brandId && !modelId) {
           productPayload.searchKey = search;
         }
-
         const productResponse = await axios.post(
           `${BASE_URL}/user/product/listv2`,
           productPayload,
           { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
         );
-
         if (productResponse.data?.success && productResponse.data?.data?.rows?.length > 0) {
           const apiProducts = productResponse.data.data.rows.map((product) => {
             const variant = product.varients[0];
             const price = variant?.inventory?.price || 0;
             const originalPrice = price * 1.3;
             const discount = "-23%";
+            const cartItem = cartItems.find(
+              (item) => item.product?.id === product.id && item.varientId === variant?.id
+            );
             return {
               id: product.id,
               name: product.productLanguages[0]?.name || "Unknown Product",
@@ -186,6 +204,8 @@ export default function HomePage() {
               isFavorite: isFavorite(product.id),
               variantId: variant?.id || null,
               productVarientUomId: product.variant?.productVarientUom?.[0]?.id || null,
+              inCart: !!cartItem,
+              cartQuantity: cartItem ? Math.floor(cartItem.quantity) : 0, // Ensure integer
             };
           });
           setProducts(apiProducts);
@@ -201,16 +221,25 @@ export default function HomePage() {
         setTimeout(() => setLocalShowPopup(null), 3000);
       }
     }, 300),
-    [router, selectedLanguageId, isFavorite]
+    [selectedLanguageId, isFavorite]
   );
 
-  // Fetch languages and manufacturers on mount
+  // Fetch data on mount
   useEffect(() => {
-    fetchLanguages();
-    fetchManufacturers();
-  }, [fetchLanguages, fetchManufacturers]);
+    const fetchInitialData = async () => {
+      setIsLoading(true);
+      await fetchLanguages();
+      await fetchManufacturers();
+      await fetchCartItems();
+      if (selectedLanguageId) {
+        await fetchProducts(searchTerm, selectedBrandId, selectedModelId, cartItems);
+      }
+      setIsLoading(false);
+    };
+    fetchInitialData();
+  }, [fetchLanguages, fetchManufacturers, fetchCartItems, selectedLanguageId, fetchProducts, searchTerm, selectedBrandId, selectedModelId]);
 
-  // Fetch models when brand or search term changes
+  // Fetch models when brand or search changes
   useEffect(() => {
     if (selectedBrandId) {
       fetchModels(selectedBrandId, searchTerm);
@@ -219,16 +248,18 @@ export default function HomePage() {
     }
   }, [selectedBrandId, searchTerm, fetchModels]);
 
+  // Fetch products when filters change
   useEffect(() => {
-    if (selectedLanguageId) {
-      fetchProducts(searchTerm, selectedBrandId, selectedModelId);
+    if (selectedLanguageId && !isLoading) {
+      fetchProducts(searchTerm, selectedBrandId, selectedModelId, cartItems);
     }
-  }, [searchTerm, selectedBrandId, selectedModelId, selectedLanguageId, fetchProducts]);
+  }, [searchTerm, selectedBrandId, selectedModelId, selectedLanguageId, cartItems, fetchProducts, isLoading]);
 
-  // Memoize brands and languages to prevent reference changes
+  // Memoize brands and languages
   const memoizedBrands = useMemo(() => brands, [brands]);
   const memoizedLanguages = useMemo(() => languages, [languages]);
 
+  // Handlers
   const handleBrandClick = (brand) => {
     setSelectedBrandId(brand.id);
     setSelectedModelId(null);
@@ -267,59 +298,80 @@ export default function HomePage() {
     setModelSlideIndex(0);
   };
 
-  const addToCart = async (product) => {
-    const token = localStorage.getItem("token");
-    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://your-api-base-url.com";
-    if (!token) {
-      setLocalShowPopup({
-        type: "error",
-        message: "Please log in to add item to cart.",
-      });
-      setTimeout(() => {
-        setLocalShowPopup(null);
-        router.push("/autopartsmarketplace/login");
-      }, 1000);
-      return;
-    }
+  const handleAddToCart = async (product) => {
     try {
       if (!product.variantId) throw new Error("Variant ID not found.");
-      const cartResponse = await axios.post(
-        `${BASE_URL}/user/cart/listv2`,
-        { languageId: selectedLanguageId },
-        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
-      );
-      const cartItems = cartResponse.data?.data?.rows || [];
-      const existingItem = cartItems.find(
-        (item) => item.product?.id === product.id && item.varientId === product.variantId
-      );
-      if (existingItem) {
-        const newQuantity = existingItem.quantity + 1;
-        await axios.post(
-          `${BASE_URL}/user/cart/edit`,
-          { cartId: existingItem.id, quantity: newQuantity },
-          { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
-        );
-        setLocalShowPopup({
-          type: "success",
-          message: `${product.name} quantity updated in cart!`,
-        });
-      } else {
-        const cartItem = { productId: product.id, quantity: 1, varientId: product.variantId };
-        await axios.post(`${BASE_URL}/user/cart/addv2`, cartItem, {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        });
-        setLocalShowPopup({
-          type: "success",
-          message: `${product.name} added successfully to cart!`,
-        });
-      }
+      await addToCart({
+        productId: product.id,
+        quantity: 1,
+        varientId: product.variantId,
+      });
+      setLocalShowPopup({
+        type: "success",
+        message: `${product.name} added successfully to cart!`,
+      });
+      await fetchCartItems();
     } catch (err) {
       console.error("Error adding to cart:", err.message);
       setLocalShowPopup({
         type: "error",
-        message: "Failed to add to cart. Please try again.",
+        message: err.message === "No token" ? "Please log in to add item to cart." : "Failed to add to cart.",
       });
-    } finally {
+      if (err.message === "No token") {
+        setTimeout(() => {
+          setLocalShowPopup(null);
+          router.push("/autopartsmarketplace/login");
+        }, 1000);
+      } else {
+        setTimeout(() => setLocalShowPopup(null), 3000);
+      }
+    }
+  };
+
+  const handleIncrement = async (product) => {
+    try {
+      const cartItem = cartItems.find(
+        (item) => item.product?.id === product.id && item.varientId === product.variantId
+      );
+      if (cartItem) {
+        const newQuantity = Math.floor(cartItem.quantity) + 1; // Ensure integer
+        await updateCartQuantity({ cartId: cartItem.id, quantity: newQuantity });
+        setLocalShowPopup({
+          type: "success",
+          message: `${product.name} quantity updated in cart!`,
+        });
+        await fetchCartItems();
+      }
+    } catch (err) {
+      console.error("Error incrementing quantity:", err.message);
+      setLocalShowPopup({
+        type: "error",
+        message: "Failed to update quantity.",
+      });
+      setTimeout(() => setLocalShowPopup(null), 3000);
+    }
+  };
+
+  const handleDecrement = async (product) => {
+    try {
+      const cartItem = cartItems.find(
+        (item) => item.product?.id === product.id && item.varientId === product.variantId
+      );
+      if (cartItem && cartItem.quantity > 1) {
+        const newQuantity = Math.floor(cartItem.quantity) - 1; // Ensure integer
+        await updateCartQuantity({ cartId: cartItem.id, quantity: newQuantity });
+        setLocalShowPopup({
+          type: "success",
+          message: `${product.name} quantity updated in cart!`,
+        });
+        await fetchCartItems();
+      }
+    } catch (err) {
+      console.error("Error decrementing quantity:", err.message);
+      setLocalShowPopup({
+        type: "error",
+        message: "Failed to update quantity.",
+      });
       setTimeout(() => setLocalShowPopup(null), 3000);
     }
   };
@@ -435,18 +487,20 @@ export default function HomePage() {
                   <div className="w-full p-2 bg-slate-700 rounded-lg">
                     <div className="relative">
                       <div className="grid grid-rows-2 grid-cols-3 gap-2">
-                        {memoizedBrands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).map((brand) => (
-                          <Button
-                            key={brand.id}
-                            variant="outline"
-                            className={`bg-slate-700 border-slate-600 text-white hover:bg-slate-600 h-10 text-ellipsis overflow-hidden whitespace-nowrap ${
-                              selectedBrandId === brand.id ? "bg-blue-600 border-blue-600" : ""
-                            }`}
-                            onClick={() => handleBrandClick(brand)}
-                          >
-                            {brand.name}
-                          </Button>
-                        ))}
+                        {memoizedBrands
+                          .slice(brandSlideIndex, brandSlideIndex + itemsPerSlide)
+                          .map((brand) => (
+                            <Button
+                              key={brand.id}
+                              variant="outline"
+                              className={`bg-slate-700 border-slate-600 text-white hover:bg-slate-600 h-10 text-ellipsis overflow-hidden whitespace-nowrap ${
+                                selectedBrandId === brand.id ? "bg-blue-600 border-blue-600" : ""
+                              }`}
+                              onClick={() => handleBrandClick(brand)}
+                            >
+                              {brand.name}
+                            </Button>
+                          ))}
                         {memoizedBrands.slice(brandSlideIndex, brandSlideIndex + itemsPerSlide).length <
                           itemsPerSlide &&
                           Array(
@@ -583,67 +637,100 @@ export default function HomePage() {
           </>
         )}
 
-        <div className={`grid gap-4 ${viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"}`}>
-          {products.map((product) => (
-            <div
-              key={product.id}
-              className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden"
-              onClick={() => router.push(`/autopartsmarketplace/product/${product.id}`)}
-            >
-              <div className="relative">
-                <Image
-                  src={product.image || "/placeholder.svg"}
-                  alt={product.name}
-                  width={200}
-                  height={200}
-                  className="w-full h-40 object-cover"
-                />
-                <button
-                  className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorite({
-                      productId: product.id,
-                      name: product.name,
-                    });
-                  }}
-                >
-                  <Icon
-                    name="heart"
-                    size={16}
-                    className={product.isFavorite ? "text-red-500" : "text-white"}
+        {isLoading ? (
+          <div className="text-white text-center">Loading...</div>
+        ) : (
+          <div className={`grid gap-4 ${viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"}`}>
+            {products.map((product) => (
+              <div
+                key={product.id}
+                className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden"
+                onClick={() => router.push(`/autopartsmarketplace/product/${product.id}`)}
+              >
+                <div className="relative">
+                  <Image
+                    src={product.image || "/placeholder.svg"}
+                    alt={product.name}
+                    width={200}
+                    height={200}
+                    className="w-full h-40 object-cover"
                   />
-                </button>
-              </div>
-              <div className="p-3">
-                <div className="text-xs text-blue-400 mb-1">{product.brand}</div>
-                <h3 className="text-sm font-medium text-white mb-2 line-clamp-2">{product.name}</h3>
-                <div className="flex items-center gap-1 mb-2">
-                  <Icon name="star" size={12} className="text-yellow-400" />
-                  <span className="text-xs text-gray-300">{product.rating}</span>
-                  <span className="text-xs text-gray-400">({product.reviews})</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-lg font-bold text-white">{product.price}</div>
-                    <div className="text-xs text-gray-400 line-through">{product.originalPrice}</div>
-                  </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={!product.inStock}
+                  <button
+                    className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
                     onClick={(e) => {
                       e.stopPropagation();
-                      addToCart(product);
+                      toggleFavorite({
+                        productId: product.id,
+                        name: product.name,
+                      });
                     }}
                   >
-                    {product.inStock ? "Add" : "Out of Stock"}
-                  </Button>
+                    <Icon
+                      name="heart"
+                      size={16}
+                      className={product.isFavorite ? "text-red-500" : "text-white"}
+                    />
+                  </button>
+                </div>
+                <div className="p-3">
+                  <div className="text-xs text-blue-400 mb-1">{product.brand}</div>
+                  <h3 className="text-sm font-medium text-white mb-2 line-clamp-2">{product.name}</h3>
+                  <div className="flex items-center gap-1 mb-2">
+                    <Icon name="star" size={12} className="text-yellow-400" />
+                    <span className="text-xs text-gray-300">{product.rating}</span>
+                    <span className="text-xs text-gray-400">({product.reviews})</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-lg font-bold text-white">{product.price}</div>
+                      <div className="text-xs text-gray-400 line-through">{product.originalPrice}</div>
+                    </div>
+                    {product.inCart ? (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-slate-700 text-white hover:bg-slate-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDecrement(product);
+                          }}
+                          disabled={product.cartQuantity <= 1}
+                        >
+                          <Icon name="minus" size={12} />
+                        </Button>
+                        <span className="text-white text-sm">{Math.floor(product.cartQuantity)}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-slate-700 text-white hover:bg-slate-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleIncrement(product);
+                          }}
+                        >
+                          <Icon name="plus" size={12} />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        disabled={!product.inStock}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToCart(product);
+                        }}
+                      >
+                        {product.inStock ? "Add" : "Out of Stock"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </Layout>
   );
