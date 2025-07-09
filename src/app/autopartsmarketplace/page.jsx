@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import Layout from "./components/Layout";
 import { Button } from "./components/Button";
 import { Icon } from "./components/Icon";
@@ -13,6 +13,94 @@ import { useLanguage } from "./context/languageContext";
 import { useFavorite } from "./context/favoriteContext";
 import { useCart } from "./context/cartContext";
 import { Toaster } from "react-hot-toast";
+
+// Memoized ProductCard component to prevent unnecessary re-renders
+const ProductCard = memo(({ product, onToggleFavorite, onAddToCart, onIncrement, onDecrement, router }) => {
+  return (
+    <div
+      className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden"
+      onClick={() => router.push(`/autopartsmarketplace/product/${product.id}`)}
+    >
+      <div className="relative">
+        <Image
+          src={product.image || "/placeholder.svg"}
+          alt={product.name}
+          width={200}
+          height={200}
+          className="w-full h-40 object-cover"
+        />
+        <button
+          className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(product);
+          }}
+        >
+          <Icon
+            name="heart"
+            size={16}
+            className={product.isFavorite ? "text-red-500" : "text-white"}
+          />
+        </button>
+      </div>
+      <div className="p-3">
+        <div className="text-xs text-blue-400 mb-1">{product.brand}</div>
+        <h3 className="text-sm font-medium text-white mb-2 line-clamp-2">{product.name}</h3>
+        <div className="flex items-center gap-1 mb-2">
+          <Icon name="star" size={12} className="text-yellow-400" />
+          <span className="text-xs text-gray-300">{product.rating}</span>
+          <span className="text-xs text-gray-400">({product.reviews})</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-lg font-bold text-white">{product.price}</div>
+            <div className="text-xs text-gray-400 line-through">{product.originalPrice}</div>
+          </div>
+          {product.inCart ? (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-slate-700 text-white hover:bg-slate-600"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDecrement(product);
+                }}
+                disabled={product.cartQuantity <= 1}
+              >
+                <Icon name="minus" size={12} />
+              </Button>
+              <span className="text-white text-sm">{Math.floor(product.cartQuantity)}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-slate-700 text-white hover:bg-slate-600"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onIncrement(product);
+                }}
+              >
+                <Icon name="plus" size={12} />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!product.inStock}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCart(product);
+              }}
+            >
+              {product.inStock ? "Add" : "Out of Stock"}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export default function HomePage() {
   const router = useRouter();
@@ -32,7 +120,7 @@ export default function HomePage() {
   const [modelSlideIndex, setModelSlideIndex] = useState(0);
   const [localShowPopup, setLocalShowPopup] = useState(null);
   const [cartItems, setCartItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(true); // New state for loading
+  const [isLoading, setIsLoading] = useState(true);
   const itemsPerSlide = 6;
 
   // Fetch languages
@@ -138,7 +226,7 @@ export default function HomePage() {
         { languageId: selectedLanguageId },
         { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
       );
-      ificultura: if (cartResponse.data?.success) {
+      if (cartResponse.data?.success) {
         setCartItems(cartResponse.data.data.rows || []);
       } else {
         setCartItems([]);
@@ -205,7 +293,7 @@ export default function HomePage() {
               variantId: variant?.id || null,
               productVarientUomId: product.variant?.productVarientUom?.[0]?.id || null,
               inCart: !!cartItem,
-              cartQuantity: cartItem ? Math.floor(cartItem.quantity) : 0, // Ensure integer
+              cartQuantity: cartItem ? Math.floor(cartItem.quantity) : 0,
             };
           });
           setProducts(apiProducts);
@@ -221,8 +309,18 @@ export default function HomePage() {
         setTimeout(() => setLocalShowPopup(null), 3000);
       }
     }, 300),
-    [selectedLanguageId, isFavorite]
+    [selectedLanguageId,isFavorite]
   );
+
+  // Update favorite status without refetching products
+  useEffect(() => {
+    setProducts((prevProducts) =>
+      prevProducts.map((product) => ({
+        ...product,
+        isFavorite: isFavorite(product.id),
+      }))
+    );
+  }, [isFavorite]);
 
   // Fetch data on mount
   useEffect(() => {
@@ -237,7 +335,7 @@ export default function HomePage() {
       setIsLoading(false);
     };
     fetchInitialData();
-  }, [fetchLanguages, fetchManufacturers, fetchCartItems, selectedLanguageId, fetchProducts, searchTerm, selectedBrandId, selectedModelId]);
+  }, [fetchLanguages, fetchManufacturers, fetchCartItems, selectedLanguageId]);
 
   // Fetch models when brand or search changes
   useEffect(() => {
@@ -334,7 +432,7 @@ export default function HomePage() {
         (item) => item.product?.id === product.id && item.varientId === product.variantId
       );
       if (cartItem) {
-        const newQuantity = Math.floor(cartItem.quantity) + 1; // Ensure integer
+        const newQuantity = Math.floor(cartItem.quantity) + 1;
         await updateCartQuantity({ cartId: cartItem.id, quantity: newQuantity });
         setLocalShowPopup({
           type: "success",
@@ -358,7 +456,7 @@ export default function HomePage() {
         (item) => item.product?.id === product.id && item.varientId === product.variantId
       );
       if (cartItem && cartItem.quantity > 1) {
-        const newQuantity = Math.floor(cartItem.quantity) - 1; // Ensure integer
+        const newQuantity = Math.floor(cartItem.quantity) - 1;
         await updateCartQuantity({ cartId: cartItem.id, quantity: newQuantity });
         setLocalShowPopup({
           type: "success",
@@ -374,6 +472,13 @@ export default function HomePage() {
       });
       setTimeout(() => setLocalShowPopup(null), 3000);
     }
+  };
+
+  const handleToggleFavorite = (product) => {
+    toggleFavorite({
+      productId: product.id,
+      name: product.name,
+    });
   };
 
   const toggleFilter = () => {
@@ -642,92 +747,15 @@ export default function HomePage() {
         ) : (
           <div className={`grid gap-4 ${viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"}`}>
             {products.map((product) => (
-              <div
+              <ProductCard
                 key={product.id}
-                className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden"
-                onClick={() => router.push(`/autopartsmarketplace/product/${product.id}`)}
-              >
-                <div className="relative">
-                  <Image
-                    src={product.image || "/placeholder.svg"}
-                    alt={product.name}
-                    width={200}
-                    height={200}
-                    className="w-full h-40 object-cover"
-                  />
-                  <button
-                    className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite({
-                        productId: product.id,
-                        name: product.name,
-                      });
-                    }}
-                  >
-                    <Icon
-                      name="heart"
-                      size={16}
-                      className={product.isFavorite ? "text-red-500" : "text-white"}
-                    />
-                  </button>
-                </div>
-                <div className="p-3">
-                  <div className="text-xs text-blue-400 mb-1">{product.brand}</div>
-                  <h3 className="text-sm font-medium text-white mb-2 line-clamp-2">{product.name}</h3>
-                  <div className="flex items-center gap-1 mb-2">
-                    <Icon name="star" size={12} className="text-yellow-400" />
-                    <span className="text-xs text-gray-300">{product.rating}</span>
-                    <span className="text-xs text-gray-400">({product.reviews})</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-lg font-bold text-white">{product.price}</div>
-                      <div className="text-xs text-gray-400 line-through">{product.originalPrice}</div>
-                    </div>
-                    {product.inCart ? (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-slate-700 text-white hover:bg-slate-600"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDecrement(product);
-                          }}
-                          disabled={product.cartQuantity <= 1}
-                        >
-                          <Icon name="minus" size={12} />
-                        </Button>
-                        <span className="text-white text-sm">{Math.floor(product.cartQuantity)}</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-slate-700 text-white hover:bg-slate-600"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleIncrement(product);
-                          }}
-                        >
-                          <Icon name="plus" size={12} />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={!product.inStock}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToCart(product);
-                        }}
-                      >
-                        {product.inStock ? "Add" : "Out of Stock"}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
+                product={product}
+                onToggleFavorite={handleToggleFavorite}
+                onAddToCart={handleAddToCart}
+                onIncrement={handleIncrement}
+                onDecrement={handleDecrement}
+                router={router}
+              />
             ))}
           </div>
         )}
