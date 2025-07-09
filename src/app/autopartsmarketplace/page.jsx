@@ -511,7 +511,7 @@ export default function HomePage() {
         <Toaster />
         {(localShowPopup || showPopup) && (
           <div
-            className={`fixed top-4 right-4 p-4 rounded-lg text-white ${
+            className={`fixed top-4 z-70 left-1/2 transform -translate-x-1/2 p-4 rounded-lg text-white ${
               (localShowPopup || showPopup).type === "success" ? "bg-green-600" : "bg-red-600"
             }`}
           >
