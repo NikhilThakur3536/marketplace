@@ -147,7 +147,7 @@ export default function HomePage() {
         type: "error",
         message: error.response?.data?.message || "Failed to load languages.",
       });
-      setTimeout(() => setLocalShowPopup(null), 3000);
+      setTimeout(() => setLocalShowPopup(null), 300);
     }
   }, [selectedLanguageId, setSelectedLanguageId]);
 
@@ -172,7 +172,7 @@ export default function HomePage() {
         type: "error",
         message: error.response?.data?.message || "Failed to load manufacturers.",
       });
-      setTimeout(() => setLocalShowPopup(null), 3000);
+      setTimeout(() => setLocalShowPopup(null), 300);
     }
   }, []);
 
@@ -206,7 +206,7 @@ export default function HomePage() {
           type: "error",
           message: error.response?.data?.message || "Failed to load models.",
         });
-        setTimeout(() => setLocalShowPopup(null), 3000);
+        setTimeout(() => setLocalShowPopup(null), 300);
       }
     }, 300),
     []
@@ -306,7 +306,7 @@ export default function HomePage() {
           type: "error",
           message: error.response?.data?.message || "Failed to load products.",
         });
-        setTimeout(() => setLocalShowPopup(null), 3000);
+        setTimeout(() => setLocalShowPopup(null), 300);
       }
     }, 300),
     [selectedLanguageId,isFavorite]
@@ -421,7 +421,7 @@ export default function HomePage() {
           router.push("/autopartsmarketplace/login");
         }, 1000);
       } else {
-        setTimeout(() => setLocalShowPopup(null), 3000);
+        setTimeout(() => setLocalShowPopup(null), 300);
       }
     }
   };
@@ -446,7 +446,7 @@ export default function HomePage() {
         type: "error",
         message: "Failed to update quantity.",
       });
-      setTimeout(() => setLocalShowPopup(null), 3000);
+      setTimeout(() => setLocalShowPopup(null), 300);
     }
   };
 
@@ -470,7 +470,7 @@ export default function HomePage() {
         type: "error",
         message: "Failed to update quantity.",
       });
-      setTimeout(() => setLocalShowPopup(null), 3000);
+      setTimeout(() => setLocalShowPopup(null), 300);
     }
   };
 

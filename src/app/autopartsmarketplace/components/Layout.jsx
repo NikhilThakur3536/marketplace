@@ -47,8 +47,7 @@ export default function Layout({ children, title, showBackButton = false, showHe
 
   return (
     <div className="min-h-screen bg-slate-900 text-white max-w-md mx-auto relative">
-                  <Breadcrumbs/>
-
+        <Breadcrumbs/>
       {showHeader && (
         <header className="sticky top-0 z-50 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700">
           <div className="flex items-center justify-between p-4">
